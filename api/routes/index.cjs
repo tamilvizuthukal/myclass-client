@@ -67,26 +67,65 @@ router.post('/auth/login', async (req, res) => {
 // --- 1b. User Login (GET with query parameters) ---
 router.get('/auth/login', async (req, res) => {
     try {
-        console.log('=== LOGIN DEBUG (GET) ===');
+        console.log('=== LOGIN DEBUG (GET) - ENHANCED ===');
+        console.log('Timestamp:', new Date().toISOString());
         console.log('Request method:', req.method);
         console.log('Request URL:', req.url);
-        console.log('Request query:', req.query);
+        console.log('Request query:', JSON.stringify(req.query, null, 2));
+        console.log('Request headers:', JSON.stringify(req.headers, null, 2));
         
-        const { username, password } = req.query;
-        console.log('Extracted credentials:', { username: username ? 'provided' : 'missing', password: password ? 'provided' : 'missing' });
+        // Enhanced parameter extraction and validation
+        const username = req.query.username;
+        let password = req.query.password;
+        
+        console.log('Raw parameters:', { username: username, password: password });
+        
+        // Handle potential password parsing issues (e.g., "student123:1")
+        if (password && typeof password === 'string' && password.includes(':')) {
+            console.log('Password contains colon - splitting on first colon');
+            password = password.split(':')[0];
+            console.log('Cleaned password:', password);
+        }
+        
+        console.log('Extracted credentials:', {
+            username: username ? 'provided' : 'missing',
+            password: password ? 'provided' : 'missing'
+        });
 
         if (!username || !password) {
             console.log('Missing credentials - returning 400');
             return res.status(400).json({
                 message: 'Missing credentials',
                 received: { username: !!username, password: !!password },
-                queryParams: req.query
+                queryParams: req.query,
+                cleanedParams: { username: username, password: password }
             });
+        }
+
+        // Test database connection
+        console.log('Testing database connection...');
+        console.log('Mongoose connection state:', mongoose.connection.readyState);
+        console.log('Mongoose connection states:', {
+            0: 'disconnected',
+            1: 'connected',
+            2: 'connecting',
+            3: 'disconnecting'
+        }[mongoose.connection.readyState] || 'unknown');
+
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
         }
 
         console.log('Searching for user with username:', username);
         const user = await User.findOne({ username });
-        console.log('User search result:', user ? `Found user: ${user.username}` : 'No user found');
+        console.log('User search result:', user ? `Found user: ${user.username} (ID: ${user._id})` : 'No user found');
 
         if (!user) {
             console.log('User not found - returning 401');
@@ -94,6 +133,8 @@ router.get('/auth/login', async (req, res) => {
         }
 
         console.log('Comparing passwords...');
+        console.log('Stored password hash:', user.password);
+        console.log('Provided password:', password);
         const passwordMatch = user.password === password;
         console.log('Password match result:', passwordMatch);
 
@@ -107,13 +148,29 @@ router.get('/auth/login', async (req, res) => {
         console.log('Login successful - returning 200');
         res.json({ user: userWithoutPass, token });
     } catch (error) {
-        console.error('=== LOGIN ERROR (GET) ===');
-        console.error('Error details:', error);
+        console.error('=== LOGIN ERROR (GET) - ENHANCED ===');
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
         console.error('Error stack:', error.stack);
+        console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+        
+        // Enhanced error response with debugging info
         res.status(500).json({
-            message: error.message,
-            error: error.toString(),
-            stack: error.stack
+            message: 'Server error during login',
+            error: error.message,
+            errorName: error.name,
+            stack: error.stack,
+            requestInfo: {
+                method: req.method,
+                url: req.url,
+                query: req.query,
+                headers: {
+                    'user-agent': req.headers['user-agent'],
+                    'host': req.headers['host']
+                }
+            },
+            mongooseState: mongoose.connection.readyState,
+            timestamp: new Date().toISOString()
         });
     }
 });
