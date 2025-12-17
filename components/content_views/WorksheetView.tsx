@@ -7,8 +7,8 @@ import { TrashIcon, UploadCloudIcon, PlusIcon, DownloadIcon, EyeIcon, XIcon, Lin
 import { ConfirmModal } from '../ConfirmModal';
 import { PdfViewer } from './PdfViewer';
 import { useToast } from '../../context/ToastContext';
-import "./styles/worksheet.css";
 import { formatCount } from '../../utils/formatUtils';
+import "./worksheet.css";
 
 
 interface WorksheetViewProps {
