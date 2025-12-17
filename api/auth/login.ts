@@ -1,47 +1,45 @@
-import clientPromise from '../lib/mongodb'
-import bcrypt from 'bcryptjs'
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { connectDB } from "../lib/mongodb";
+import User from "../models/User"; // adjust path if needed
 
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
-
-  const { action } = req.query
-
-  if (action !== 'login') {
-    return res.status(400).json({ error: 'Invalid auth action' })
-  }
-
-  const { email, password } = req.body ?? {}
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Missing credentials' })
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Method not allowed" });
   }
 
   try {
-    const client = await clientPromise
-    const db = client.db()
-    const users = db.collection('users')
+    await connectDB();
 
-    const user = await users.findOne({ email })
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ message: "Missing credentials" });
+    }
+
+    const user = await User.findOne({ username });
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' })
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const match = await bcrypt.compare(password, user.password)
-    if (!match) {
-      return res.status(401).json({ error: 'Invalid credentials' })
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    return res.status(200).json({
-      ok: true,
-      userId: String(user._id),
-      email: user.email,
-      role: user.role ?? 'user'
-    })
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "7d" }
+    );
 
+    res.status(200).json({ token, user });
   } catch (err) {
-    console.error('AUTH ERROR:', err)
-    return res.status(500).json({ error: 'Server error' })
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 }
