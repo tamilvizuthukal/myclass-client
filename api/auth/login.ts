@@ -15,6 +15,7 @@ export default async function handler(
   try {
     await connectDB();
 
+    // Vercel sometimes sends body as string
     const body =
       typeof req.body === "string" ? JSON.parse(req.body) : req.body;
 
@@ -24,7 +25,7 @@ export default async function handler(
       return res.status(400).json({ message: "Missing credentials" });
     }
 
-    const user = await User.findOne({ username }).lean();
+    const user = await User.findOne({ username });
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
@@ -34,19 +35,23 @@ export default async function handler(
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    // ✅ JWT_SECRET CHECK — ONLY HERE
     if (!process.env.JWT_SECRET) {
-      throw new Error("JWT_SECRET not configured");
+      console.error("JWT_SECRET missing");
+      return res.status(500).json({ message: "Server misconfiguration" });
     }
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id.toString(), role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    delete (user as any).password;
+    // ❌ Never send password to client
+    const userObj = user.toObject();
+    delete userObj.password;
 
-    return res.status(200).json({ token, user });
+    return res.status(200).json({ token, user: userObj });
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     return res.status(500).json({ message: "Server error" });
