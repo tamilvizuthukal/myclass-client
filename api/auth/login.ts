@@ -1,8 +1,8 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { VercelRequest, VercelResponse } from "@vercel/node";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { connectDB } from "../lib/mongodb";
-import User from "../models/User"; // adjust path if needed
+import { connectDB } from "../lib/db";
+import User from "../models/User";
 
 export default async function handler(
   req: VercelRequest,
@@ -15,13 +15,17 @@ export default async function handler(
   try {
     await connectDB();
 
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ message: "JWT_SECRET not configured" });
+    }
+
     const { username, password } = req.body;
 
     if (!username || !password) {
       return res.status(400).json({ message: "Missing credentials" });
     }
 
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ username }).select("+password");
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
@@ -32,14 +36,22 @@ export default async function handler(
     }
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET as string,
+      { id: user._id.toString(), role: user.role },
+      process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    res.status(200).json({ token, user });
+    // ❌ password remove
+    const userSafe = {
+      id: user._id,
+      username: user.username,
+      role: user.role,
+      name: user.name,
+    };
+
+    return res.status(200).json({ token, user: userSafe });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error("LOGIN ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 }
