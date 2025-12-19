@@ -25,17 +25,41 @@ export default async function handler(
       return res.status(400).json({ message: "Missing credentials" });
     }
 
+    // Debug logging
+    console.log(`Login attempt for: ${username}`);
+
+    // Find user (with password)
     const user = await User.findOne({ username });
+
     if (!user) {
+      console.log(`User not found: ${username}`);
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    console.log(`User found: ${user._id}`);
+
+    // 1. Try bcrypt comparison first
+    let isMatch = await bcrypt.compare(password, user.password);
+
+    // 2. Fallback: Check for plain text password (legacy migration)
     if (!isMatch) {
+      console.log("Bcrypt failed, checking plain text...");
+      if (user.password === password) {
+        console.log("Plain text match! Migrating to bcrypt...");
+
+        // Hash and save new password
+        user.password = await bcrypt.hash(password, 10);
+        await user.save();
+        isMatch = true;
+      }
+    }
+
+    if (!isMatch) {
+      console.log("Password mismatch");
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // ✅ JWT_SECRET CHECK — ONLY HERE
+    // ✅ JWT_SECRET CHECK
     if (!process.env.JWT_SECRET) {
       console.error("JWT_SECRET missing");
       return res.status(500).json({ message: "Server misconfiguration" });
@@ -54,8 +78,8 @@ export default async function handler(
       token,
       user: userWithoutPassword
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("LOGIN ERROR:", err);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
 }
