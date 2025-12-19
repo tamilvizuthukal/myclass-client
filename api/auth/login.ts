@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { connectDB } from "../lib/db";
-import User from "../models/User";
+import { connectDB } from "../lib/db.js";
+import User from "../models/User.js";
 
 export default async function handler(
   req: VercelRequest,
@@ -48,10 +48,12 @@ export default async function handler(
     );
 
     // ❌ Never send password to client
-    const userObj = user.toObject();
-    delete userObj.password;
+    const { password: _, ...userWithoutPassword } = user.toObject();
 
-    return res.status(200).json({ token, user: userObj });
+    return res.status(200).json({
+      token,
+      user: userWithoutPassword
+    });
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     return res.status(500).json({ message: "Server error" });
