@@ -29,8 +29,9 @@ const Selector: React.FC<{
   options: { _id: string; name: string }[] | null;
   isLoading: boolean;
   disabled: boolean;
-}> = ({ label, value, onChange, options, isLoading, disabled }) => (
-  <div className="w-full">
+  className?: string;
+}> = ({ label, value, onChange, options, isLoading, disabled, className }) => (
+  <div className={`w-full ${className || ''}`}>
     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
       {label}
     </label>
@@ -165,6 +166,7 @@ export const SelectionModal: React.FC<SelectionModalProps> = ({
                 options={subjects}
                 isLoading={isLoadingSubjects}
                 disabled={!classId}
+                className="animate-fade-in"
               />
             )}
 
@@ -177,6 +179,7 @@ export const SelectionModal: React.FC<SelectionModalProps> = ({
                 options={units}
                 isLoading={isLoadingUnits}
                 disabled={!subjectId}
+                className="animate-fade-in"
               />
             )}
 
@@ -189,6 +192,7 @@ export const SelectionModal: React.FC<SelectionModalProps> = ({
                 options={subUnits}
                 isLoading={isLoadingSubUnits}
                 disabled={!unitId}
+                className="animate-fade-in"
               />
             )}
 
@@ -201,6 +205,7 @@ export const SelectionModal: React.FC<SelectionModalProps> = ({
                 options={lessons}
                 isLoading={isLoadingLessons}
                 disabled={!subUnitId}
+                className="animate-fade-in"
               />
             )}
           </div>

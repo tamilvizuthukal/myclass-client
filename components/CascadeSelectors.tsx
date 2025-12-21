@@ -237,6 +237,7 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
               options={subjects}
               isLoading={isLoadingSubjects}
               disabled={!classId}
+              className="animate-fade-in"
             />
           )}
           {subjectId && (
@@ -247,6 +248,7 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
               options={units}
               isLoading={isLoadingUnits}
               disabled={!subjectId}
+              className="animate-fade-in"
             />
           )}
           {unitId && (isLoadingSubUnits || (subUnits && subUnits.length > 0)) && (
@@ -257,6 +259,7 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
               options={subUnits}
               isLoading={isLoadingSubUnits}
               disabled={!unitId}
+              className="animate-fade-in"
             />
           )}
           {subUnitId && (isLoadingLessons || (lessons && lessons.length > 0)) && (
@@ -267,6 +270,7 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
               options={lessons}
               isLoading={isLoadingLessons}
               disabled={!subUnitId}
+              className="animate-fade-in"
             />
           )}
         </div>
@@ -329,8 +333,9 @@ const Selector: React.FC<{
   options: { _id: string; name: string }[] | null;
   isLoading: boolean;
   disabled: boolean;
-}> = ({ label, value, onChange, options, isLoading, disabled }) => (
-  <div className="relative flex-1 min-w-[160px] max-w-[200px]">
+  className?: string;
+}> = ({ label, value, onChange, options, isLoading, disabled, className }) => (
+  <div className={`relative flex-1 min-w-[160px] max-w-[200px] ${className || ''}`}>
     <select
       value={value || ''}
       onChange={onChange}
