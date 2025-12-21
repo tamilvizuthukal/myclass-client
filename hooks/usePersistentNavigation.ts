@@ -225,10 +225,12 @@ export const usePersistentNavigation = () => {
     const teacherState = navigationState.teacherState;
 
     // Check if any meaningful navigation data was restored
-    const adminHasData = !!(adminState.classId || adminState.subjectId || adminState.unitId || adminState.subUnitId || adminState.lessonId || adminState.selectedResourceType);
-    const teacherHasData = !!(teacherState.classId || teacherState.subjectId || teacherState.unitId || teacherState.subUnitId || teacherState.lessonId || teacherState.selectedResourceType);
+    const hasAdminData = Object.values(adminState || {}).some(v => v !== null && v !== undefined && v !== 0 && v !== '');
+    const hasTeacherData = Object.values(teacherState || {}).some(v => v !== null && v !== undefined && v !== 0 && v !== '');
 
-    return adminHasData || teacherHasData;
+    console.log('[PersistentNavigation] State has data check:', { hasAdminData, hasTeacherData });
+
+    return hasAdminData || hasTeacherData;
   };
 
   const hasTimeChanged = navigationState.lastUpdated !== defaultNavigationState.lastUpdated;

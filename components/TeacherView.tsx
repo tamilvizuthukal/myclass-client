@@ -29,6 +29,14 @@ export const TeacherView: React.FC = () => {
         });
     }, [state]);
 
+    // Ensure resource type is selected if lesson is active (Fix 3)
+    useEffect(() => {
+        if (state.lessonId && !state.selectedResourceType) {
+            console.log('[TeacherView] Lesson selected but no resource type. Defaulting to book.');
+            updateTeacherState({ selectedResourceType: 'book' });
+        }
+    }, [state.lessonId, state.selectedResourceType, updateTeacherState]);
+
     // Check if device is mobile
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 

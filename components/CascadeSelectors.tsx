@@ -55,6 +55,48 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
     !!subUnitId
   );
 
+  // --- Auto-Selection Logic (Fix 1) ---
+
+  // Auto-select first Class
+  useEffect(() => {
+    if (classes && classes.length > 0 && !classId) {
+      console.log('[CascadeSelectors] Auto-selecting first class:', classes[0].name);
+      onClassChange(classes[0]._id);
+    }
+  }, [classes, classId, onClassChange]);
+
+  // Auto-select first Subject
+  useEffect(() => {
+    if (subjects && subjects.length > 0 && !subjectId) {
+      console.log('[CascadeSelectors] Auto-selecting first subject:', subjects[0].name);
+      onSubjectChange(subjects[0]._id);
+    }
+  }, [subjects, subjectId, onSubjectChange]);
+
+  // Auto-select first Unit
+  useEffect(() => {
+    if (units && units.length > 0 && !unitId) {
+      console.log('[CascadeSelectors] Auto-selecting first unit:', units[0].name);
+      onUnitChange(units[0]._id);
+    }
+  }, [units, unitId, onUnitChange]);
+
+  // Auto-select first Sub-Unit
+  useEffect(() => {
+    if (subUnits && subUnits.length > 0 && !subUnitId) {
+      console.log('[CascadeSelectors] Auto-selecting first subUnit:', subUnits[0].name);
+      onSubUnitChange(subUnits[0]._id);
+    }
+  }, [subUnits, subUnitId, onSubUnitChange]);
+
+  // Auto-select first Lesson
+  useEffect(() => {
+    if (lessons && lessons.length > 0 && !lessonId) {
+      console.log('[CascadeSelectors] Auto-selecting first lesson:', lessons[0].name);
+      onLessonChange(lessons[0]._id);
+    }
+  }, [lessons, lessonId, onLessonChange]);
+
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
 
