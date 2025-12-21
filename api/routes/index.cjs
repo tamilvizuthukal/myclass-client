@@ -178,13 +178,18 @@ router.get('/auth/login', async (req, res) => {
 // --- 2. Get Published Classes ---
 router.get('/classes', async (req, res) => {
     try {
+        console.log('[API] GET /classes request received');
+        console.log('Query params:', req.query);
         const query = {};
         if (req.query.includeUnpublished !== 'true') {
             query.isPublished = true;
         }
+        console.log('Mongo Query:', JSON.stringify(query));
         const classes = await Class.find(query);
+        console.log(`[API] Found ${classes.length} classes`);
         res.json(classes);
     } catch (error) {
+        console.error('[API] Error in GET /classes:', error);
         res.status(500).json({ message: error.message });
     }
 });
@@ -192,6 +197,8 @@ router.get('/classes', async (req, res) => {
 // --- 3. Get Published Subjects ---
 router.get('/subjects', async (req, res) => {
     try {
+        console.log('[API] GET /subjects request received');
+        console.log('Query params:', req.query);
         const query = {};
         if (req.query.includeUnpublished !== 'true') {
             query.isPublished = true;
@@ -199,9 +206,12 @@ router.get('/subjects', async (req, res) => {
         if (req.query.classId) {
             query.classId = req.query.classId;
         }
+        console.log('Mongo Query:', JSON.stringify(query));
         const subjects = await Subject.find(query);
+        console.log(`[API] Found ${subjects.length} subjects`);
         res.json(subjects);
     } catch (error) {
+        console.error('[API] Error in GET /subjects:', error);
         res.status(500).json({ message: error.message });
     }
 });
@@ -209,6 +219,8 @@ router.get('/subjects', async (req, res) => {
 // --- 4. Get Published Units ---
 router.get('/units', async (req, res) => {
     try {
+        console.log('[API] GET /units request received');
+        console.log('Query params:', req.query);
         const query = {};
         if (req.query.includeUnpublished !== 'true') {
             query.isPublished = true;
@@ -217,8 +229,10 @@ router.get('/units', async (req, res) => {
             query.subjectId = req.query.subjectId;
         }
         const units = await Unit.find(query);
+        console.log(`[API] Found ${units.length} units`);
         res.json(units);
     } catch (error) {
+        console.error('[API] Error in GET /units:', error);
         res.status(500).json({ message: error.message });
     }
 });
@@ -226,6 +240,8 @@ router.get('/units', async (req, res) => {
 // --- 5. Get Published Sub-Units ---
 router.get('/subUnits', async (req, res) => {
     try {
+        console.log('[API] GET /subUnits request received');
+        console.log('Query params:', req.query);
         const query = {};
         if (req.query.includeUnpublished !== 'true') {
             query.isPublished = true;
@@ -234,8 +250,10 @@ router.get('/subUnits', async (req, res) => {
             query.unitId = req.query.unitId;
         }
         const subUnits = await SubUnit.find(query);
+        console.log(`[API] Found ${subUnits.length} subUnits`);
         res.json(subUnits);
     } catch (error) {
+        console.error('[API] Error in GET /subUnits:', error);
         res.status(500).json({ message: error.message });
     }
 });
@@ -243,6 +261,8 @@ router.get('/subUnits', async (req, res) => {
 // --- 6. Get Published Lessons ---
 router.get('/lessons', async (req, res) => {
     try {
+        console.log('[API] GET /lessons request received');
+        console.log('Query params:', req.query);
         const query = {};
         if (req.query.includeUnpublished !== 'true') {
             query.isPublished = true;
@@ -251,8 +271,10 @@ router.get('/lessons', async (req, res) => {
             query.subUnitId = req.query.subUnitId;
         }
         const lessons = await Lesson.find(query);
+        console.log(`[API] Found ${lessons.length} lessons`);
         res.json(lessons);
     } catch (error) {
+        console.error('[API] Error in GET /lessons:', error);
         res.status(500).json({ message: error.message });
     }
 });
@@ -404,9 +426,12 @@ router.get('/users/:id/profile', async (req, res) => {
 // --- 11. Update User Profile ---
 router.put('/users/:id/update-profile', async (req, res) => {
     try {
+        console.log(`[API] PUT /users/${req.params.id}/update-profile`);
+        console.log('Body:', req.body);
         const { name, email, mobileNumber } = req.body;
 
         if (!name || !email) {
+            console.warn('[API] Missing name or email');
             return res.status(400).json({
                 message: 'Name and email are required'
             });
@@ -417,23 +442,27 @@ router.put('/users/:id/update-profile', async (req, res) => {
             updateData.mobileNumber = mobileNumber;
         }
 
+        // Find user first to ensure existence
+        const existingUser = await User.findById(req.params.id);
+        if (!existingUser) {
+            console.warn('[API] User not found for update:', req.params.id);
+            return res.status(404).json({ message: 'User not found' });
+        }
+
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
             updateData,
             { new: true }
         ).select('-password');
 
-        if (!updatedUser) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
+        console.log('[API] Profile updated successfully');
         res.json({
             success: true,
             user: updatedUser,
             message: 'Profile updated successfully'
         });
     } catch (error) {
-        console.error('Profile update error:', error);
+        console.error('[API] Profile update error:', error);
         res.status(500).json({ message: error.message });
     }
 });
@@ -488,18 +517,29 @@ router.put('/users/:id/change-password', async (req, res) => {
 // --- First-time login profile update (bonus endpoint, can be merged with #11 if needed) ---
 router.put('/users/:id/profile', async (req, res) => {
     try {
+        console.log(`[API] PUT /users/${req.params.id}/profile (First Time Login)`);
+        console.log('Body:', req.body);
         const { password, mobileNumber } = req.body;
 
         if (!password || !mobileNumber) {
+            console.warn('[API] Missing password or mobile number');
             return res.status(400).json({
                 message: 'Password and mobile number are required'
             });
         }
 
         if (password.length < 3) {
+            console.warn('[API] Password too short');
             return res.status(400).json({
                 message: 'Password must be at least 3 characters long'
             });
+        }
+
+        // Check if user exists first
+        const userExists = await User.exists({ _id: req.params.id });
+        if (!userExists) {
+            console.warn('[API] User not found for ID:', req.params.id);
+            return res.status(404).json({ message: 'User not found' });
         }
 
         const updatedUser = await User.findByIdAndUpdate(
@@ -512,13 +552,10 @@ router.put('/users/:id/profile', async (req, res) => {
             { new: true }
         ).select('-password');
 
-        if (!updatedUser) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
+        console.log('[API] First time login profile updated');
         res.json(updatedUser);
     } catch (error) {
-        console.error('Profile update error:', error);
+        console.error('[API] Profile update error (First Time):', error);
         res.status(500).json({ message: error.message });
     }
 });

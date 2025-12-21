@@ -13,7 +13,8 @@ const apiRequest = async <T>(endpoint: string, options?: RequestInit): Promise<T
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `API Error: ${response.statusText}`);
+        console.error(`[API Error] ${endpoint}:`, response.status, response.statusText, errorData);
+        throw new Error(errorData.message || `API Error: ${response.status} ${response.statusText}`);
     }
 
     return response.json();
@@ -33,14 +34,14 @@ const buildQuery = (params: Record<string, string | boolean | undefined>) => {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
-             searchParams.append(key, String(value));
+            searchParams.append(key, String(value));
         }
     });
     const queryString = searchParams.toString();
     return queryString ? `?${queryString}` : '';
 };
 
-export const getClasses = (onlyPublished: boolean = true): Promise<Class[]> => 
+export const getClasses = (onlyPublished: boolean = true): Promise<Class[]> =>
     apiRequest(`/classes${!onlyPublished ? '?includeUnpublished=true' : ''}`);
 
 export const getSubjectsByClassId = (classId: string, onlyPublished: boolean = true): Promise<Subject[]> =>
@@ -69,7 +70,7 @@ export const getContentsByLessonId = (lessonId: string, types?: ResourceType[], 
     const params: Record<string, string> = { lessonId };
     if (!onlyPublished) params.includeUnpublished = 'true';
     if (types && types.length > 0) params.type = types[0];
-    
+
     let url = `/content${buildQuery(params)}`;
     console.log('[API] getContentsByLessonId called:', { lessonId, types, url });
 
