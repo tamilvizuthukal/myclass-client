@@ -41,8 +41,12 @@ const buildQuery = (params: Record<string, string | boolean | undefined>) => {
     return queryString ? `?${queryString}` : '';
 };
 
-export const getClasses = (onlyPublished: boolean = true): Promise<Class[]> =>
-    apiRequest(`/classes${!onlyPublished ? '?includeUnpublished=true' : ''}`);
+export const getClasses = async (onlyPublished: boolean = true): Promise<Class[]> => {
+    console.log('[API] getClasses called', { onlyPublished });
+    const result = await apiRequest<Class[]>(`/classes${!onlyPublished ? '?includeUnpublished=true' : ''}`);
+    console.log('[API] getClasses result:', result?.length || 0, 'classes');
+    return result;
+};
 
 export const getSubjectsByClassId = (classId: string, onlyPublished: boolean = true): Promise<Subject[]> =>
     apiRequest(`/subjects${buildQuery({ classId, includeUnpublished: !onlyPublished ? 'true' : undefined })}`);

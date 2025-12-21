@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Mobile-specific improvements for the login page */
 
 /* Import Tamil fonts */
