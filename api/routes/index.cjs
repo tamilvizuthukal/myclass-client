@@ -17,7 +17,7 @@ router.post('/auth/login', async (req, res) => {
         console.log('Request method:', req.method);
         console.log('Request URL:', req.url);
         console.log('Request body:', req.body);
-        
+
         const { username, password } = req.body;
         console.log('Extracted credentials:', { username: username ? 'provided' : 'missing', password: password ? 'provided' : 'missing' });
 
@@ -73,20 +73,20 @@ router.get('/auth/login', async (req, res) => {
         console.log('Request URL:', req.url);
         console.log('Request query:', JSON.stringify(req.query, null, 2));
         console.log('Request headers:', JSON.stringify(req.headers, null, 2));
-        
+
         // Enhanced parameter extraction and validation
         const username = req.query.username;
         let password = req.query.password;
-        
+
         console.log('Raw parameters:', { username: username, password: password });
-        
+
         // Handle potential password parsing issues (e.g., "student123:1")
         if (password && typeof password === 'string' && password.includes(':')) {
             console.log('Password contains colon - splitting on first colon');
             password = password.split(':')[0];
             console.log('Cleaned password:', password);
         }
-        
+
         console.log('Extracted credentials:', {
             username: username ? 'provided' : 'missing',
             password: password ? 'provided' : 'missing'
@@ -153,7 +153,7 @@ router.get('/auth/login', async (req, res) => {
         console.error('Error message:', error.message);
         console.error('Error stack:', error.stack);
         console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-        
+
         // Enhanced error response with debugging info
         res.status(500).json({
             message: 'Server error during login',
@@ -178,8 +178,11 @@ router.get('/auth/login', async (req, res) => {
 // --- 2. Get Published Classes ---
 router.get('/classes', async (req, res) => {
     try {
-        // Always filter for published only
-        const classes = await Class.find({ isPublished: true });
+        const query = {};
+        if (req.query.includeUnpublished !== 'true') {
+            query.isPublished = true;
+        }
+        const classes = await Class.find(query);
         res.json(classes);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -189,7 +192,10 @@ router.get('/classes', async (req, res) => {
 // --- 3. Get Published Subjects ---
 router.get('/subjects', async (req, res) => {
     try {
-        const query = { isPublished: true };
+        const query = {};
+        if (req.query.includeUnpublished !== 'true') {
+            query.isPublished = true;
+        }
         if (req.query.classId) {
             query.classId = req.query.classId;
         }
@@ -203,7 +209,10 @@ router.get('/subjects', async (req, res) => {
 // --- 4. Get Published Units ---
 router.get('/units', async (req, res) => {
     try {
-        const query = { isPublished: true };
+        const query = {};
+        if (req.query.includeUnpublished !== 'true') {
+            query.isPublished = true;
+        }
         if (req.query.subjectId) {
             query.subjectId = req.query.subjectId;
         }
@@ -217,7 +226,10 @@ router.get('/units', async (req, res) => {
 // --- 5. Get Published Sub-Units ---
 router.get('/subUnits', async (req, res) => {
     try {
-        const query = { isPublished: true };
+        const query = {};
+        if (req.query.includeUnpublished !== 'true') {
+            query.isPublished = true;
+        }
         if (req.query.unitId) {
             query.unitId = req.query.unitId;
         }
@@ -231,7 +243,10 @@ router.get('/subUnits', async (req, res) => {
 // --- 6. Get Published Lessons ---
 router.get('/lessons', async (req, res) => {
     try {
-        const query = { isPublished: true };
+        const query = {};
+        if (req.query.includeUnpublished !== 'true') {
+            query.isPublished = true;
+        }
         if (req.query.subUnitId) {
             query.subUnitId = req.query.subUnitId;
         }
@@ -304,7 +319,10 @@ router.get('/content', async (req, res) => {
     try {
         const { lessonId, type } = req.query;
 
-        const query = { isPublished: true };
+        const query = {};
+        if (req.query.includeUnpublished !== 'true') {
+            query.isPublished = true;
+        }
 
         if (lessonId) {
             query.lessonId = new mongoose.Types.ObjectId(lessonId);

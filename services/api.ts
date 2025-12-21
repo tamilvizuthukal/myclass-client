@@ -28,20 +28,32 @@ const apiRequest = async <T>(endpoint: string, options?: RequestInit): Promise<T
 export const loginUser = (username: string, password: string): Promise<{ user: User, token: string }> =>
     apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
 
-// --- Hierarchy (Read-Only, Published Content Only) ---
-export const getClasses = (): Promise<Class[]> => apiRequest('/classes');
+// --- Hierarchy (Read-Only, Published Content Only by default) ---
+const buildQuery = (params: Record<string, string | boolean | undefined>) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+             searchParams.append(key, String(value));
+        }
+    });
+    const queryString = searchParams.toString();
+    return queryString ? `?${queryString}` : '';
+};
 
-export const getSubjectsByClassId = (classId: string): Promise<Subject[]> =>
-    apiRequest(`/subjects?classId=${classId}`);
+export const getClasses = (onlyPublished: boolean = true): Promise<Class[]> => 
+    apiRequest(`/classes${!onlyPublished ? '?includeUnpublished=true' : ''}`);
 
-export const getUnitsBySubjectId = (subjectId: string): Promise<Unit[]> =>
-    apiRequest(`/units?subjectId=${subjectId}`);
+export const getSubjectsByClassId = (classId: string, onlyPublished: boolean = true): Promise<Subject[]> =>
+    apiRequest(`/subjects${buildQuery({ classId, includeUnpublished: !onlyPublished ? 'true' : undefined })}`);
 
-export const getSubUnitsByUnitId = (unitId: string): Promise<SubUnit[]> =>
-    apiRequest(`/subUnits?unitId=${unitId}`);
+export const getUnitsBySubjectId = (subjectId: string, onlyPublished: boolean = true): Promise<Unit[]> =>
+    apiRequest(`/units${buildQuery({ subjectId, includeUnpublished: !onlyPublished ? 'true' : undefined })}`);
 
-export const getLessonsBySubUnitId = (subUnitId: string): Promise<Lesson[]> =>
-    apiRequest(`/lessons?subUnitId=${subUnitId}`);
+export const getSubUnitsByUnitId = (unitId: string, onlyPublished: boolean = true): Promise<SubUnit[]> =>
+    apiRequest(`/subUnits${buildQuery({ unitId, includeUnpublished: !onlyPublished ? 'true' : undefined })}`);
+
+export const getLessonsBySubUnitId = (subUnitId: string, onlyPublished: boolean = true): Promise<Lesson[]> =>
+    apiRequest(`/lessons${buildQuery({ subUnitId, includeUnpublished: !onlyPublished ? 'true' : undefined })}`);
 
 export const getHierarchy = (lessonId: string): Promise<{
     className: string;
@@ -52,21 +64,20 @@ export const getHierarchy = (lessonId: string): Promise<{
     isPublished?: boolean;
 }> => apiRequest(`/hierarchy/${lessonId}`);
 
-// --- Content (Read-Only, Published Content Only) ---
-export const getContentsByLessonId = (lessonId: string, types?: ResourceType[]): Promise<GroupedContent[]> => {
-    let url = `/content?lessonId=${lessonId}`;
+// --- Content (Read-Only, Published Content Only by default) ---
+export const getContentsByLessonId = (lessonId: string, types?: ResourceType[], onlyPublished: boolean = true): Promise<GroupedContent[]> => {
+    const params: Record<string, string> = { lessonId };
+    if (!onlyPublished) params.includeUnpublished = 'true';
+    if (types && types.length > 0) params.type = types[0];
+    
+    let url = `/content${buildQuery(params)}`;
     console.log('[API] getContentsByLessonId called:', { lessonId, types, url });
-
-    if (types && types.length > 0) {
-        url += `&type=${types[0]}`;
-        console.log('[API] getContentsByLessonId with type filter:', url);
-    }
 
     return apiRequest(url);
 };
 
 export const getCountsByLessonId = async (lessonId: string): Promise<ResourceCounts> => {
-    const grouped: GroupedContent[] = await getContentsByLessonId(lessonId);
+    const grouped: GroupedContent[] = await getContentsByLessonId(lessonId, undefined, true); // counts usually for display, so published only
     const counts: ResourceCounts = {};
     grouped.forEach(g => {
         counts[g.type] = g.count;
