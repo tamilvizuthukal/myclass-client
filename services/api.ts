@@ -13,7 +13,11 @@ const apiRequest = async <T>(endpoint: string, options?: RequestInit): Promise<T
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error(`[API Error] ${endpoint}:`, response.status, response.statusText, errorData);
+        if (response.status === 404) {
+            console.warn(`[API] Resource not found: ${endpoint}`);
+        } else {
+            console.error(`[API Error] ${endpoint}:`, response.status, response.statusText, errorData);
+        }
         throw new Error(errorData.message || `API Error: ${response.status} ${response.statusText}`);
     }
 

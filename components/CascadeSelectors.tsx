@@ -59,47 +59,30 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
     { keepPreviousData: false }
   );
 
-  // --- Auto-Selection Logic (Fix 1) ---
+  // --- Auto-Selection Logic REMOVED for Strict Cascading ---
+  // The user must manually select each step to ensure valid state.
 
-  // Auto-select first Class
+  // Effect: If a Unit is selected, and we have determined it has NO Sub-Units, treat the Unit as the "Lesson" (Leaf Node)
   useEffect(() => {
-    if (classes && classes.length > 0 && !classId) {
-      console.log('[CascadeSelectors] Auto-selecting first class:', classes[0].name);
-      onClassChange(classes[0]._id);
+    // Only auto-select if we have loaded subunits and confirmed count is 0
+    if (unitId && !isLoadingSubUnits && subUnits && subUnits.length === 0) {
+      if (lessonId !== unitId) {
+        console.log('[CascadeSelectors] Unit as lesson (Leaf Node) - setting lessonId to unitId:', { unitId });
+        onLessonChange(unitId);
+      }
     }
-  }, [classes, classId, onClassChange]);
+  }, [unitId, subUnits, isLoadingSubUnits, lessonId, onLessonChange]);
 
-  // Auto-select first Subject
+  // Effect: If a Sub-Unit is selected, and we have determined it has NO Lessons (Chapters), treat the Sub-Unit as the "Lesson" (Leaf Node)
   useEffect(() => {
-    if (subjects && subjects.length > 0 && !subjectId) {
-      console.log('[CascadeSelectors] Auto-selecting first subject:', subjects[0].name);
-      onSubjectChange(subjects[0]._id);
+    // Only auto-select if we have loaded lessons and confirmed count is 0
+    if (subUnitId && !isLoadingLessons && lessons && lessons.length === 0) {
+      if (lessonId !== subUnitId) {
+        console.log('[CascadeSelectors] SubUnit as lesson (Leaf Node) - setting lessonId to subUnitId:', { subUnitId });
+        onLessonChange(subUnitId);
+      }
     }
-  }, [subjects, subjectId, onSubjectChange]);
-
-  // Auto-select first Unit
-  useEffect(() => {
-    if (units && units.length > 0 && !unitId) {
-      console.log('[CascadeSelectors] Auto-selecting first unit:', units[0].name);
-      onUnitChange(units[0]._id);
-    }
-  }, [units, unitId, onUnitChange]);
-
-  // Auto-select first Sub-Unit
-  useEffect(() => {
-    if (subUnits && subUnits.length > 0 && !subUnitId) {
-      console.log('[CascadeSelectors] Auto-selecting first subUnit:', subUnits[0].name);
-      onSubUnitChange(subUnits[0]._id);
-    }
-  }, [subUnits, subUnitId, onSubUnitChange]);
-
-  // Auto-select first Lesson
-  useEffect(() => {
-    if (lessons && lessons.length > 0 && !lessonId) {
-      console.log('[CascadeSelectors] Auto-selecting first lesson:', lessons[0].name);
-      onLessonChange(lessons[0]._id);
-    }
-  }, [lessons, lessonId, onLessonChange]);
+  }, [subUnitId, lessons, isLoadingLessons, lessonId, onLessonChange]);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -175,30 +158,10 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
   useEffect(() => {
     if (!hasSelections && classes && classes.length > 0) {
       // Show modal when page loads and no selections are made
-      setIsModalOpen(true);
-      onModalToggle?.(true);
+      // setIsModalOpen(true); // DISABLED: Auto-opening modal can be annoying if user just wants to see the top bar.
+      // onModalToggle?.(true);
     }
   }, [hasSelections, classes, onModalToggle]);
-
-  // Effect: If a Unit is selected, but it has NO Sub-Units, treat the Unit as the "Lesson" (Leaf Node)
-  useEffect(() => {
-    if (unitId && !isLoadingSubUnits && subUnits && subUnits.length === 0) {
-      if (lessonId !== unitId) {
-        //console.log('[CascadeSelectors] Unit as lesson - setting lessonId to unitId:', { unitId, previousLessonId: lessonId });
-        onLessonChange(unitId);
-      }
-    }
-  }, [unitId, subUnits, isLoadingSubUnits, lessonId, onLessonChange]);
-
-  // Effect: If a Sub-Unit is selected, but it has NO Lessons (Chapters), treat the Sub-Unit as the "Lesson" (Leaf Node)
-  useEffect(() => {
-    if (subUnitId && !isLoadingLessons && lessons && lessons.length === 0) {
-      if (lessonId !== subUnitId) {
-        console.log('[CascadeSelectors] SubUnit as lesson - setting lessonId to subUnitId:', { subUnitId, previousLessonId: lessonId });
-        onLessonChange(subUnitId);
-      }
-    }
-  }, [subUnitId, lessons, isLoadingLessons, lessonId, onLessonChange]);
 
   const handleModalOpen = () => {
     setIsModalOpen(true);

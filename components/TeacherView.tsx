@@ -99,6 +99,7 @@ export const TeacherView: React.FC = () => {
                     selectedResourceType={state.selectedResourceType}
                     onSelectResourceType={handleSelectResourceType}
                     isOpen={sidebarOpen}
+                    isMobile={isMobile}
                 />
                 <main
                     ref={scrollElementRef}

@@ -1002,16 +1002,11 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full flex flex-col h-full overflow-hidden">
             <div className="flex justify-between items-center mb-6 shrink-0">
-                <div>
-                    <div className="flex items-center gap-3 mb-1">
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                         <QAIcon className="w-8 h-8 text-emerald-600" />
-                        <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-emerald-600 dark:from-white dark:to-emerald-400">
-                            Q-A & More
-                        </h2>
-                        {/* View Count next to Title */}
-                        {/* View Count Removed */}
+                        <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-emerald-600 dark:from-white dark:to-emerald-400">Q-A & More</h1>
                     </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 pl-1">Questions, answers, and additional exercises.</p>
                 </div>
 
                 <div className="flex items-center gap-2">
