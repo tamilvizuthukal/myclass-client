@@ -1,9 +1,67 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
+const fs = require('fs'); // Added fs
 const router = express.Router();
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { User, Class, Subject, Unit, SubUnit, Lesson, Content } = require('../models.cjs');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const multer = require('multer');
+
+// Configure Uploads (Cloudinary with Local Fallback)
+let upload;
+
+try {
+    const hasCloudinary = process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET;
+
+    if (hasCloudinary) {
+        console.log('[API] Configuring Cloudinary storage...');
+        cloudinary.config({
+            cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+            api_key: process.env.CLOUDINARY_API_KEY,
+            api_secret: process.env.CLOUDINARY_API_SECRET
+        });
+
+        const storage = new CloudinaryStorage({
+            cloudinary: cloudinary,
+            params: {
+                folder: 'class-content-browser',
+                resource_type: 'auto',
+                allowed_formats: ['jpg', 'png', 'pdf', 'mp4', 'mp3', 'webm', 'ogg', 'wav'],
+                use_filename: true,
+                unique_filename: true
+            },
+        });
+        upload = multer({ storage: storage });
+        console.log('[API] Cloudinary storage configured successfully');
+    } else {
+        throw new Error('Missing Cloudinary credentials');
+    }
+} catch (error) {
+    console.warn('[API] Cloudinary configuration failed/missing:', error.message);
+    console.log('[API] Falling back to local disk storage');
+
+    const uploadsDir = path.join(__dirname, '../../uploads');
+    if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const storage = multer.diskStorage({
+        destination: function (req, file, cb) {
+            cb(null, uploadsDir)
+        },
+        filename: function (req, file, cb) {
+            // Sanitize filename
+            const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+            cb(null, Date.now() + '-' + safeName)
+        }
+    });
+    upload = multer({
+        storage: storage,
+        limits: { fileSize: 500 * 1024 * 1024 } // 500MB limit
+    });
+}
 
 // ============================================================================
 // CONSOLIDATED API ROUTES FOR VERCEL (12 ENDPOINTS MAX)
@@ -556,6 +614,84 @@ router.put('/users/:id/profile', async (req, res) => {
         res.json(updatedUser);
     } catch (error) {
         console.error('[API] Profile update error (First Time):', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// --- 13. Upload File (Admin) ---
+// Use a wrapper to handle multer errors gracefully
+router.post('/upload', (req, res, next) => {
+    upload.single('file')(req, res, (err) => {
+        if (err) {
+            console.error('[API] Multer Upload Error:', err);
+            return res.status(500).json({
+                message: 'File upload failed',
+                error: err.message
+            });
+        }
+        next();
+    });
+}, async (req, res) => {
+    try {
+        console.log('[API] POST /upload request received');
+
+        if (!req.file) {
+            console.error('No file uploaded in request');
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+
+        console.log('File uploaded:', req.file);
+        const { lessonId, type, title } = req.body;
+
+        if (!lessonId || !type || !title) {
+            console.warn('Missing required fields: lessonId, type, or title');
+            return res.status(400).json({ message: 'Missing required fields: lessonId, type, or title' });
+        }
+
+        // Determine if storage was Cloudinary or Local
+        const isCloudinary = !!req.file.path.match(/cloudinary/i) || req.file.storage === 'cloudinary' || req.file.cloudinary;
+        // Logic might need adjustment based on how multer-storage-cloudinary populates req.file
+        // Typically req.file.path is the URL for Cloudinary.
+
+        let fileData = {
+            url: req.file.path,
+            publicId: req.file.filename,
+            size: req.file.size,
+            mime: req.file.mimetype,
+        };
+
+        // If local, we might need to construct a URL
+        if (!req.file.path.startsWith('http')) {
+            // It's a local path
+            // We need to serve this. The API serves /uploads via express.static in index.js
+            // Local path: .../uploads/filename.ext
+            // served at: /uploads/filename.ext
+            const filename = req.file.filename;
+            fileData.url = `/uploads/${filename}`;
+        }
+
+        // Create Content entry
+        const contentData = {
+            lessonId,
+            type,
+            title,
+            storage: process.env.CLOUDINARY_CLOUD_NAME ? 'cloudinary' : 'local', // Assumption
+            file: fileData,
+            body: fileData.url, // Legacy support
+            filePath: fileData.url, // Legacy support
+            originalFileName: req.file.originalname,
+            fileSize: req.file.size,
+            isPublished: false
+        };
+
+        const newContent = new Content(contentData);
+        await newContent.save();
+
+        console.log('Content saved to DB:', newContent._id);
+
+        res.json(newContent);
+    } catch (error) {
+        console.error('Upload API Error:', error);
         res.status(500).json({ message: error.message });
     }
 });
