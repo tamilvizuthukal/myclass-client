@@ -37,22 +37,26 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
   const { data: subjects, isLoading: isLoadingSubjects } = useApi<Subject[]>(
     () => getSubjectsByClassId(classId!, onlyPublished),
     [classId, onlyPublished],
-    !!classId
+    !!classId,
+    { keepPreviousData: false }
   );
   const { data: units, isLoading: isLoadingUnits } = useApi<Unit[]>(
     () => getUnitsBySubjectId(subjectId!, onlyPublished),
     [subjectId, onlyPublished],
-    !!subjectId
+    !!subjectId,
+    { keepPreviousData: false }
   );
   const { data: subUnits, isLoading: isLoadingSubUnits } = useApi<SubUnit[]>(
     () => getSubUnitsByUnitId(unitId!, onlyPublished),
     [unitId, onlyPublished],
-    !!unitId
+    !!unitId,
+    { keepPreviousData: false }
   );
   const { data: lessons, isLoading: isLoadingLessons } = useApi<Lesson[]>(
     () => getLessonsBySubUnitId(subUnitId!, onlyPublished),
     [subUnitId, onlyPublished],
-    !!subUnitId
+    !!subUnitId,
+    { keepPreviousData: false }
   );
 
   // --- Auto-Selection Logic (Fix 1) ---

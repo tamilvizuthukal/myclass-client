@@ -125,42 +125,72 @@ export const usePersistentNavigation = () => {
     }
   }, []);
 
-  // Debounced save function to avoid excessive localStorage writes
-  const debouncedSaveTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
-  const debouncedSave = useCallback((state: Partial<PersistentNavigationState>) => {
-    if (debouncedSaveTimeout.current) {
-      clearTimeout(debouncedSaveTimeout.current);
+  // Ref to store the latest state for debounced saving
+  const pendingSaveState = useRef<PersistentNavigationState | null>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  // Function to save to localStorage (this will be debounced)
+  const saveToStorage = useCallback(() => {
+    if (pendingSaveState.current) {
+      console.log('[PersistentNavigation] Persisting debounced state to storage:', pendingSaveState.current);
+      localStorage.setItem(NAVIGATION_STORAGE_KEY, JSON.stringify(pendingSaveState.current));
+      updateLastActivity();
+      pendingSaveState.current = null;
+    }
+  }, [updateLastActivity]);
+
+  // Schedule a debounced save
+  const scheduleSave = useCallback((newState: PersistentNavigationState) => {
+    pendingSaveState.current = newState;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
 
-    debouncedSaveTimeout.current = setTimeout(() => {
+    saveTimeoutRef.current = setTimeout(saveToStorage, 100);
+  }, [saveToStorage]);
+
+  // Ensure pending saves are written on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveToStorage();
+      }
+    };
+  }, [saveToStorage]);
+
+  // Update admin state - updates React state immediately, debounces storage
+  const updateAdminState = useCallback((updates: Partial<AdminState>) => {
+    setNavigationState(prevState => {
+      const newAdminState = { ...prevState.adminState, ...updates };
       const newState = {
-        ...navigationState,
-        ...state,
+        ...prevState,
+        adminState: newAdminState,
         lastUpdated: Date.now()
       };
 
-      console.log('[PersistentNavigation] Debounced saving state:', newState);
-      setNavigationState(newState);
-      localStorage.setItem(NAVIGATION_STORAGE_KEY, JSON.stringify(newState));
-      updateLastActivity();
-    }, 100); // Small delay to batch rapid changes
-  }, [navigationState, updateLastActivity]);
+      console.log('[PersistentNavigation] Immediate state update (Admin):', newState);
+      scheduleSave(newState);
+      return newState;
+    });
+  }, [scheduleSave]);
 
-  // Update admin state with debounced saving
-  const updateAdminState = useCallback((updates: Partial<AdminState>) => {
-    console.log('[PersistentNavigation] Updating admin state with:', updates);
-    const newAdminState = { ...navigationState.adminState, ...updates };
-    console.log('[PersistentNavigation] New admin state will be:', newAdminState);
-    debouncedSave({ adminState: newAdminState });
-  }, [navigationState.adminState, debouncedSave]);
-
-  // Update teacher state with debounced saving
+  // Update teacher state - updates React state immediately, debounces storage
   const updateTeacherState = useCallback((updates: Partial<TeacherState>) => {
-    console.log('[PersistentNavigation] Updating teacher state with:', updates);
-    const newTeacherState = { ...navigationState.teacherState, ...updates };
-    console.log('[PersistentNavigation] New teacher state will be:', newTeacherState);
-    debouncedSave({ teacherState: newTeacherState });
-  }, [navigationState.teacherState, debouncedSave]);
+    setNavigationState(prevState => {
+      const newTeacherState = { ...prevState.teacherState, ...updates };
+      const newState = {
+        ...prevState,
+        teacherState: newTeacherState,
+        lastUpdated: Date.now()
+      };
+
+      console.log('[PersistentNavigation] Immediate state update (Teacher):', newState);
+      scheduleSave(newState);
+      return newState;
+    });
+  }, [scheduleSave]);
 
   // Clear navigation state (used for logout)
   const clearNavigationState = useCallback(() => {

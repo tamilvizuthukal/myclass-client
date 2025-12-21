@@ -39,14 +39,7 @@ export const ResourceIconStrip: React.FC<ResourceIconStripProps> = ({
                 : 'w-full justify-start py-2.5 px-3 rounded-lg overflow-hidden'
               }
               ${isSelected
-                ? (() => {
-                  // Parse color from r.color (e.g., 'text-blue-600')
-                  const parts = r.color.split('-');
-                  const colorName = parts[1]; // e.g., 'blue'
-                  const shade = parts[2] || '600'; // e.g., '600'
-                  // Create same-color gradient (e.g., from-blue-600 to-blue-500)
-                  return `bg-gradient-to-br from-${colorName}-${shade} to-${colorName}-${parseInt(shade) > 400 ? parseInt(shade) - 100 : parseInt(shade) + 100} text-white shadow-md`;
-                })()
+                ? `${r.activeClass || 'bg-blue-600'} text-white shadow-md`
                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
               }
             `}

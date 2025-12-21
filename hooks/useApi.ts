@@ -6,16 +6,18 @@ import { ApiHookResult } from '../types';
 export function useApi<T,>(
   fetcher: () => Promise<T>,
   deps: React.DependencyList = [],
-  enabled: boolean = true
+  enabled: boolean = true,
+  options: { keepPreviousData?: boolean } = { keepPreviousData: false }
 ): ApiHookResult<T> {
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // Clear previous data immediately when dependencies change
-    // Clear previous data immediately when dependencies change
-    // setData(null);  <-- Removed to prevent flicker
+    // Clear previous data immediately when dependencies change unless configured otherwise
+    if (!options.keepPreviousData) {
+      setData(null);
+    }
     setError(null);
 
     if (!enabled) {
