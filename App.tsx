@@ -1,6 +1,7 @@
 import React from 'react';
 import { Login } from './components/Login';
 import { Signup } from './components/Signup';
+import { InstallPWABanner } from './components/InstallPWABanner';
 import { TeacherView } from './components/TeacherView';
 import { FirstTimeLogin } from './components/FirstTimeLogin';
 import { SessionProvider, useSession } from './context/SessionContext';
@@ -14,9 +15,19 @@ const AppContent: React.FC = () => {
 
   if (!currentUser) {
     if (showSignup) {
-      return <Signup onLoginClick={() => setShowSignup(false)} />;
+      return (
+        <>
+          <Signup onLoginClick={() => setShowSignup(false)} />
+          <InstallPWABanner />
+        </>
+      );
     }
-    return <Login onSignupClick={() => setShowSignup(true)} />;
+    return (
+      <>
+        <Login onSignupClick={() => setShowSignup(true)} />
+        <InstallPWABanner />
+      </>
+    );
   }
 
   if (currentUser.isFirstLogin) {
@@ -24,7 +35,12 @@ const AppContent: React.FC = () => {
   }
 
   // All users see TeacherView with published content only
-  return <TeacherView />;
+  return (
+    <>
+      <TeacherView />
+      <InstallPWABanner />
+    </>
+  );
 };
 
 const App: React.FC = () => {
