@@ -89,6 +89,18 @@ router.post('/auth/login', async (req, res) => {
             });
         }
 
+        // Ensure database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected (POST login) - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
+        }
+
         console.log('Searching for user with username:', username);
         const user = await User.findOne({ username });
         console.log('User search result:', user ? `Found user: ${user.username}` : 'No user found');
@@ -134,6 +146,18 @@ router.post('/auth/signup', async (req, res) => {
             return res.status(400).json({
                 message: 'Missing required fields: All fields including School Name, District, and Sub-district are mandatory.'
             });
+        }
+
+        // Ensure database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected (POST signup) - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
         }
 
         const existingUser = await User.findOne({ username });
