@@ -310,6 +310,19 @@ router.get('/classes', async (req, res) => {
     try {
         console.log('[API] GET /classes request received');
         console.log('Query params:', req.query);
+
+        // Ensure database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected (GET /classes) - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
+        }
+
         const query = {};
         if (req.query.includeUnpublished !== 'true') {
             query.isPublished = true;
@@ -329,6 +342,19 @@ router.get('/subjects', async (req, res) => {
     try {
         console.log('[API] GET /subjects request received');
         console.log('Query params:', req.query);
+
+        // Ensure database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected (GET /subjects) - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
+        }
+
         const query = {};
         if (req.query.includeUnpublished !== 'true') {
             query.isPublished = true;
@@ -351,6 +377,19 @@ router.get('/units', async (req, res) => {
     try {
         console.log('[API] GET /units request received');
         console.log('Query params:', req.query);
+
+        // Ensure database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected (GET /units) - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
+        }
+
         const query = {};
         if (req.query.includeUnpublished !== 'true') {
             query.isPublished = true;
@@ -372,6 +411,19 @@ router.get('/subUnits', async (req, res) => {
     try {
         console.log('[API] GET /subUnits request received');
         console.log('Query params:', req.query);
+
+        // Ensure database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected (GET /subUnits) - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
+        }
+
         const query = {};
         if (req.query.includeUnpublished !== 'true') {
             query.isPublished = true;
@@ -393,6 +445,19 @@ router.get('/lessons', async (req, res) => {
     try {
         console.log('[API] GET /lessons request received');
         console.log('Query params:', req.query);
+
+        // Ensure database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected (GET /lessons) - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
+        }
+
         const query = {};
         if (req.query.includeUnpublished !== 'true') {
             query.isPublished = true;
@@ -413,6 +478,19 @@ router.get('/lessons', async (req, res) => {
 router.get('/hierarchy/:lessonId', async (req, res) => {
     try {
         const { lessonId } = req.params;
+
+        // Ensure database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected (GET /hierarchy) - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
+        }
+
         if (!mongoose.Types.ObjectId.isValid(lessonId)) {
             return res.status(400).json({ message: 'Invalid lesson ID' });
         }
@@ -470,6 +548,18 @@ router.get('/hierarchy/:lessonId', async (req, res) => {
 router.get('/content', async (req, res) => {
     try {
         const { lessonId, type } = req.query;
+
+        // Ensure database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected (GET /content) - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
+        }
 
         const query = {};
         if (req.query.includeUnpublished !== 'true') {
@@ -537,6 +627,18 @@ router.get('/content/:id/file', async (req, res) => {
 // --- 10. Get User Profile ---
 router.get('/users/:id/profile', async (req, res) => {
     try {
+        // Ensure database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected (GET profile) - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
+        }
+
         const user = await User.findById(req.params.id).select('-password');
 
         if (!user) {
@@ -575,6 +677,20 @@ router.put('/users/:id/update-profile', async (req, res) => {
         if (subDistrict !== undefined) updateData.subDistrict = subDistrict;
 
         console.log('[API] Update Data Prepared:', updateData);
+
+        console.log('[API] Update Data Prepared:', updateData);
+
+        // Ensure database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected (PUT update-profile) - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
+        }
 
         // Find user first to ensure existence
         const existingUser = await User.findById(req.params.id);
@@ -626,6 +742,24 @@ router.put('/users/:id/change-password', async (req, res) => {
             });
         }
 
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({
+                message: 'New passwords do not match'
+            });
+        }
+
+        // Ensure database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected (PUT change-password) - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
+        }
+
         const user = await User.findById(req.params.id);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
@@ -669,6 +803,20 @@ router.put('/users/:id/profile', async (req, res) => {
             return res.status(400).json({
                 message: 'Password must be at least 3 characters long'
             });
+        }
+
+
+
+        // Ensure database connection
+        if (mongoose.connection.readyState !== 1) {
+            console.log('Database not connected (PUT first-time-profile) - attempting connection');
+            try {
+                await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/class_content_browser');
+                console.log('Database connection established');
+            } catch (dbError) {
+                console.error('Database connection failed:', dbError);
+                throw new Error(`Database connection failed: ${dbError.message}`);
+            }
         }
 
         // Check if user exists first
