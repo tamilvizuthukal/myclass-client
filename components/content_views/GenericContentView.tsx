@@ -32,9 +32,35 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
     const contentContainer = document.createElement('div');
     contentContainer.innerHTML = htmlContent;
 
-    // Use top-level children (QA Pairs) directly as blocks, DO NOT flatten them.
-    // This ensures Q and A stay together unless the whole block is > page height.
-    const blockElements: HTMLElement[] = Array.from(contentContainer.children) as HTMLElement[];
+    // Flatten content logic to avoid duplication (Parent+Child)
+    let flatBlocks: HTMLElement[] = [];
+    const noteSections = Array.from(contentContainer.children);
+    noteSections.forEach((section) => {
+        const childNodes = Array.from(section.childNodes);
+        if (childNodes.length === 0 && section.textContent?.trim()) {
+            const p = document.createElement('p');
+            p.innerHTML = section.innerHTML;
+            flatBlocks.push(p);
+        } else {
+            childNodes.forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    flatBlocks.push(node as HTMLElement);
+                } else if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+                    const p = document.createElement('p');
+                    p.textContent = node.textContent;
+                    flatBlocks.push(p);
+                }
+            });
+        }
+    });
+
+    // Fallback if structure is unexpected
+    if (flatBlocks.length === 0 && contentContainer.children.length > 0) {
+        flatBlocks = Array.from(contentContainer.children) as HTMLElement[];
+    }
+
+    // Use flat blocks for pagination
+    const blockElements = flatBlocks;
 
     // Create a temporary div to measure heights accurately
     const tempDiv = document.createElement('div');
@@ -44,17 +70,17 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
         left: -9999px;
         top: -9999px;
         width: 700px;
-        font-family: 'TAU-Paalai', 'Nirmala UI', Arial, sans-serif;
+        font-family: 'Noto Sans Tamil', 'TAU-Paalai', 'Nirmala UI', 'Latha', 'Vijaya', 'Tunga', Arial, sans-serif;
         font-size: 14pt;
         line-height: 1.6;
         padding: 0;
         margin: 0;
         word-wrap: break-word;
-    `;
+        `;
     document.body.appendChild(tempDiv);
 
-    const maxHeightPerPage = 900;
-    const headingThreshold = 150;
+    const maxHeightPerPage = 880;
+    const headingThreshold = 250;
 
     let currentPageHTML = '';
     let currentHeight = 0;
@@ -77,16 +103,124 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
             }
         }
 
-        // Check if element fits on current page
-        if (currentHeight + elementHeight > maxHeightPerPage && currentPageHTML !== '') {
-            // If it doesn't fit, push current page and start new one
-            pages.push(currentPageHTML);
-            currentPageHTML = '';
-            currentHeight = 0;
-        }
+        // If the element is too tall for a full page, split it
+        if (elementHeight > maxHeightPerPage && (element.tagName === 'P' || element.tagName === 'DIV')) {
+            const textNodes = element.textContent?.split(/\s+/) || [];
+            let splitParts: string[] = [];
+            let currentPart = '';
+            tempDiv.innerHTML = `<${element.tagName.toLowerCase()} style="${clone.style.cssText}"></${element.tagName.toLowerCase()}>`;
+            const innerElem = tempDiv.firstChild as HTMLElement;
 
-        currentPageHTML += clone.outerHTML;
-        currentHeight += elementHeight;
+            for (let word of textNodes) {
+                const testPart = currentPart + ' ' + word;
+                innerElem.textContent = testPart;
+                const testHeight = tempDiv.offsetHeight;
+                if (testHeight > maxHeightPerPage) {
+                    splitParts.push(currentPart.trim());
+                    currentPart = word;
+                } else {
+                    currentPart = testPart;
+                }
+            }
+            if (currentPart) splitParts.push(currentPart.trim());
+
+            for (let part of splitParts) {
+                const partClone = document.createElement(element.tagName.toLowerCase());
+                partClone.style.cssText = clone.style.cssText;
+                partClone.textContent = part;
+                tempDiv.innerHTML = '';
+                tempDiv.appendChild(partClone);
+                elementHeight = tempDiv.offsetHeight;
+
+                if (currentHeight + elementHeight > maxHeightPerPage && currentPageHTML !== '') {
+                    pages.push(currentPageHTML);
+                    currentPageHTML = '';
+                    currentHeight = 0;
+                }
+
+                currentPageHTML += partClone.outerHTML;
+                currentHeight += elementHeight;
+            }
+        } else if (element.tagName === 'UL' || element.tagName === 'OL') {
+            const listItems = Array.from(clone.children);
+            let listType = element.tagName.toLowerCase();
+            let currentListHTML = `<${listType}>`;
+            let listHeight = 0;
+
+            for (let li of listItems) {
+                tempDiv.innerHTML = '';
+                tempDiv.appendChild(li.cloneNode(true));
+                const liHeight = tempDiv.offsetHeight;
+
+                if (currentHeight + listHeight + liHeight > maxHeightPerPage && currentPageHTML !== '') {
+                    if (currentListHTML !== `<${listType}>`) {
+                        currentPageHTML += currentListHTML + `</${listType}>`;
+                    }
+                    pages.push(currentPageHTML);
+                    currentPageHTML = '';
+                    currentHeight = 0;
+                    currentListHTML = `<${listType}>`;
+                    listHeight = 0;
+                }
+
+                currentListHTML += li.outerHTML;
+                listHeight += liHeight;
+            }
+
+            if (currentListHTML !== `<${listType}>`) {
+                currentPageHTML += currentListHTML + `</${listType}>`;
+                currentHeight += listHeight;
+            }
+        } else if (element.tagName === 'TABLE') {
+            const tableBase = element.cloneNode(false) as HTMLElement;
+            const tempTable = document.createElement('div');
+            tempTable.appendChild(tableBase);
+            const openingTag = tempTable.innerHTML.replace(/<\/table>$/i, '');
+
+            // Use element.rows to get all rows even if in tbody/thead
+            const rows = Array.from((element as HTMLTableElement).querySelectorAll('tr'));
+
+            let tableHTML = openingTag;
+            let tableHeight = 0;
+
+            for (let row of rows) {
+                tempDiv.innerHTML = '';
+                // Wrap row in table for correct measurement
+                const measureTable = element.cloneNode(false) as HTMLElement;
+                measureTable.appendChild(row.cloneNode(true));
+                tempDiv.appendChild(measureTable);
+
+                const rowHeight = tempDiv.offsetHeight;
+
+                if (currentHeight + tableHeight + rowHeight > maxHeightPerPage && currentPageHTML !== '') {
+                    if (tableHTML !== openingTag) {
+                        currentPageHTML += tableHTML + '</table>';
+                    }
+                    pages.push(currentPageHTML);
+                    currentPageHTML = '';
+                    currentHeight = 0;
+                    tableHTML = openingTag;
+                    tableHeight = 0;
+                }
+
+                tableHTML += row.outerHTML;
+                tableHeight += rowHeight;
+            }
+
+            if (tableHTML !== openingTag) {
+                currentPageHTML += tableHTML + '</table>';
+                currentHeight += tableHeight;
+            }
+        } else {
+            if (currentHeight + elementHeight > maxHeightPerPage && currentPageHTML !== '') {
+                pages.push(currentPageHTML);
+                currentPageHTML = '';
+                currentHeight = 0;
+            }
+
+            currentPageHTML += clone.outerHTML;
+            currentHeight += elementHeight;
+        }
 
         if (i < blockElements.length - 1) {
             const spacing = 8;
@@ -539,23 +673,13 @@ const ContentCard: React.FC<{ item: Content; onEdit: (c: Content) => void; onDel
                     setIsOpen(!isOpen);
                 }}>
                 {/* Left Accent Bar */}
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500 rounded-l-xl opacity-100 transition-opacity"></div>
 
                 <div className="flex justify-between items-start w-full gap-4">
                     <div className="flex-1">
                         <div className="prose dark:prose-invert max-w-none font-semibold text-lg text-gray-800 dark:text-white font-tau-paalai leading-snug" style={fontStyle} dangerouslySetInnerHTML={{ __html: processContentForHTML(item.title) }} />
                     </div>
                     <div className="flex items-center shrink-0 gap-2">
-                        {isAdmin && onTogglePublish && (
-                            <div className="mr-2" onClick={e => e.stopPropagation()}>
-                                <div className="mr-2" onClick={e => e.stopPropagation()}>
-                                    <PublishToggle
-                                        isPublished={!!item.isPublished}
-                                        onToggle={() => onTogglePublish(item)}
-                                    />
-                                </div>
-                            </div>
-                        )}
                         {isAdmin && (
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-2 group-hover:translate-x-0" onClick={e => e.stopPropagation()}>
                                 <button onClick={() => onEdit(item)} className="p-2 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/30 text-gray-400 hover:text-blue-600 transition-colors" title="Edit">
@@ -815,69 +939,7 @@ const PdfUploadForm: React.FC<{ onSave: (data: { title: string; body: string; me
 };
 
 
-const ExportEmailModal: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    onExport: (email: string) => void;
-    isLoading: boolean;
-}> = ({ isOpen, onClose, onExport, isLoading }) => {
-    const [email, setEmail] = useState('');
 
-    if (!isOpen) return null;
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onExport(email);
-    };
-
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6 transform transition-all scale-100">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Export to PDF</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                        <XIcon className="w-6 h-6" />
-                    </button>
-                </div>
-
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-6 font-medium">
-                    Enter your email address to receive the PDF copy.
-                </p>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="your@email.com"
-                            required
-                            className="w-full px-4 py-2 border rounded-lg bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:text-white"
-                        />
-                    </div>
-
-                    <div className="pt-2">
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 transition-all font-bold shadow-md flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? (
-                                <span>Generating PDF...</span>
-                            ) : (
-                                <>
-                                    <span>Export & Send Mail</span>
-                                    <DownloadIcon className="w-5 h-5" />
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
 
 export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId, user, resourceType }) => {
     const [version, setVersion] = useState(0);
@@ -887,11 +949,10 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
     const [confirmModalState, setConfirmModalState] = useState<{ isOpen: boolean; onConfirm: (() => void) | null }>({ isOpen: false, onConfirm: null });
     const [isAddingPdf, setIsAddingPdf] = useState(false);
     const [fullscreenPdfUrl, setFullscreenPdfUrl] = useState<string | null>(null);
-    const [stats, setStats] = useState<{ count: number; downloads: number } | null>(null);
     const { showToast } = useToast();
 
+
     // Export state
-    const [exportModalOpen, setExportModalOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const exportContainerRef = useRef<HTMLDivElement>(null);
 
@@ -960,17 +1021,7 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
         setConfirmModalState({ isOpen: true, onConfirm: confirmAction });
     };
 
-    const handleTogglePublish = async (item: Content) => {
-        try {
-            const newStatus = !item.isPublished;
-            await api.updateContent(item._id, { isPublished: newStatus });
-            setVersion(v => v + 1);
-            showToast(`Content ${newStatus ? 'published' : 'unpublished'} successfully`, 'success');
-        } catch (error) {
-            console.error('Failed to toggle publish status:', error);
-            showToast('Failed to update publish status', 'error');
-        }
-    };
+
 
     const handleAddClick = () => {
         if (isWorksheet) {
@@ -997,10 +1048,9 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
         }
     };
 
-    // Export PDF Logic
-    const handleExportConfirm = async (email: string) => {
+    // Export PDF Logic - Direct Download for All
+    const handleExportConfirm = async (email?: string) => {
         setIsExporting(true);
-        const isAdmin = user.role === 'admin' || user.canEdit;
 
         setSweetAlert({
             show: true,
@@ -1022,13 +1072,6 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
 
             // Helper to strip manual numbering from user content since we add our own
             const cleanTitleText = (text: string) => {
-                // Regex matches:
-                // 1. Prefix (tags/whitespace) - Captured in Group 1
-                // 2. Optional whitespace
-                // 3. The Number (\d+)
-                // 4. Separator (., ), -, or space) - one or more
-                // 5. Trailing whitespace
-                // callback prunes the prefix of trailing spaces so "<p> 1. " becomes "<p>"
                 return text.replace(/^(\s*(?:<[^>]+>\s*)*)\s*\d+[\.\)\-\s]+\s*/, (match, prefix) => {
                     return prefix.replace(/\s+$/, '');
                 });
@@ -1039,16 +1082,16 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
                 const aText = item.body ? processContentForHTML(item.body) : '';
 
                 allQAHTML += `
-                    <div class="qa-pair-container" style="border: 1px solid #eee; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; background-color: #fcfcfc;">
-                        <div class="question-part" style="font-weight: bold; font-size: 15pt; margin-bottom: 4px; color: #000; line-height: 1.4;">
-                            <span style="color: #2563eb; margin-right: 5px;">${index + 1}.</span>
-                            ${qText}
-                        </div>
-                        <div class="answer-part" style="font-size: 14pt; margin-left: 0px; color: #333; line-height: 1.5;">
-                            ${aText}
-                        </div>
-                    </div>
-                `;
+                                <div class="qa-pair-container" style="border: 1px solid #eee; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; background-color: #fcfcfc;">
+                                    <div class="question-part" style="font-weight: bold; font-size: 15pt; margin-bottom: 4px; color: #000; line-height: 1.4;">
+                                        <span style="color: #2563eb; margin-right: 5px;">${index + 1}.</span>
+                                        ${qText}
+                                    </div>
+                                    <div class="answer-part" style="font-size: 14pt; margin-left: 0px; color: #333; line-height: 1.5;">
+                                        ${aText}
+                                    </div>
+                                </div>
+                                `;
             });
 
             if (contentItems.length === 0) {
@@ -1070,144 +1113,145 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
             // Add CSS styles for PDF
             const styleElement = document.createElement('style');
             styleElement.textContent = `
-                .pdf-page {
-                    width: 794px;
-                    min-height: 1123px;
-                    background: white;
-                    position: relative;
-                    font-family: 'TAU-Paalai', 'Nirmala UI', Arial, sans-serif;
-                    page-break-after: always;
-                }
-               
-                .pdf-header {
-                    position: absolute;
-                    top: 20px;
-                    left: 40px;
-                    right: 40px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    border-bottom: 1px solid #ddd;
-                    padding-bottom: 10px;
-                }
-               
-                .logo-container img {
-                    width: 170px;
-                    height: 22px;
-                    object-fit: contain;
-                }
-               
-                .header-info {
-                    text-align: right;
-                    font-size: 11px;
-                    color: #555;
-                    line-height: 1.3;
-                }
-               
-                .header-info .class-info {
-                    font-weight: bold;
-                    color: #333;
-                }
-               
-                .header-info .lesson-name {
-                    font-size: 12px;
-                    font-weight: bold;
-                    margin-top: 3px;
-                    color: #222;
-                }
-               
-                .pdf-content {
-                    position: absolute;
-                    top: 100px;
-                    left: 40px;
-                    right: 54px;
-                    bottom: 100px;
-                    font-size: 14pt;
-                    line-height: 1.6;
-                    color: #000;
-                    text-align: justify;
-                    overflow: visible;
-                    z-index: 10;
-                }
-               
-                .pdf-footer {
-                    position: absolute;
-                    bottom: 30px;
-                    left: 40px;
-                    right: 40px;
-                    border-top: 1px solid #ddd;
-                    padding-top: 10px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    font-size: 10px;
-                    color: #666;
-                }
-               
-                .footer-quote {
-                    font-style: normal;
-                }
-               
-                .page-number {
-                    font-weight: bold;
-                }
-               
-                .qa-pair-container {
-                    border: 1px solid #eee;
-                    border-radius: 8px;
-                    padding: 15px;
-                    margin-bottom: 20px;
-                    background-color: #fcfcfc;
+                                .pdf-page {
+                                    width: 794px;
+                                min-height: 1123px;
+                                background: white;
+                                position: relative;
+                                font-family: 'Noto Sans Tamil', 'TAU-Paalai', 'Nirmala UI', 'Latha', 'Vijaya', 'Tunga', Arial, sans-serif;
+                                page-break-after: always;
+                                overflow: hidden;
                 }
 
-                .qa-pair-container:last-child {
-                    margin-bottom: 0;
+                                .pdf-header {
+                                    position: absolute;
+                                top: 20px;
+                                left: 40px;
+                                right: 40px;
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                border-bottom: 1px solid #ddd;
+                                padding-bottom: 10px;
                 }
 
-                p {
-                    margin-bottom: 12px;
-                    line-height: 1.6;
-                }
-               
-                h1, h2, h3, h4, h5, h6 {
-                    margin-top: 20px;
-                    margin-bottom: 8px;
-                    line-height: 1.3;
-                    font-weight: bold;
+                                .logo-container img {
+                                    width: 170px;
+                                height: 22px;
+                                object-fit: contain;
                 }
 
-                ul, ol {
-                    margin: 10px 0 10px 20px;
-                    padding-left: 20px;
+                                .header-info {
+                                    text - align: right;
+                                font-size: 11px;
+                                color: #555;
+                                line-height: 1.3;
                 }
 
-                ul { list-style-type: disc; }
-                ol { list-style-type: decimal; }
-               
-                li {
-                    margin-bottom: 5px;
+                                .header-info .class-info {
+                                    font - weight: bold;
+                                color: #333;
                 }
 
-                strong { font-weight: bold; }
-                em, i { font-style: italic; }
-
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin: 10px 0;
+                                .header-info .lesson-name {
+                                    font - size: 12px;
+                                font-weight: bold;
+                                margin-top: 3px;
+                                color: #222;
                 }
 
-                th, td {
-                    border: 1px solid #ddd;
-                    padding: 8px;
-                    text-align: left;
+                                .pdf-content {
+                                    position: absolute;
+                                top: 100px;
+                                left: 40px;
+                                right: 40px; /* Adjusted margin */
+                                bottom: 70px; /* Adjusted margin */
+                                font-size: 14pt;
+                                line-height: 1.6;
+                                color: #000;
+                                text-align: justify;
+                                overflow: hidden;
+                                z-index: 10;
                 }
 
-                th {
-                    background-color: #f2f2f2;
-                    font-weight: bold;
+                                .pdf-footer {
+                                    position: absolute;
+                                bottom: 30px;
+                                left: 40px;
+                                right: 40px;
+                                border-top: 1px solid #ddd;
+                                padding-top: 10px;
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                font-size: 10px;
+                                color: #666;
                 }
-            `;
+
+                                .footer-quote {
+                                    font - style: normal;
+                }
+
+                                .page-number {
+                                    font - weight: bold;
+                }
+
+                                .qa-pair-container {
+                                    border: 1px solid #eee;
+                                border-radius: 8px;
+                                padding: 15px;
+                                margin-bottom: 20px;
+                                background-color: #fcfcfc;
+                }
+
+                                .qa-pair-container:last-child {
+                                    margin - bottom: 0;
+                }
+
+                                p {
+                                    margin - bottom: 12px;
+                                line-height: 1.6;
+                }
+
+                                h1, h2, h3, h4, h5, h6 {
+                                    margin - top: 20px;
+                                margin-bottom: 8px;
+                                line-height: 1.3;
+                                font-weight: bold;
+                }
+
+                                ul, ol {
+                                    margin: 10px 0 10px 20px;
+                                padding-left: 20px;
+                }
+
+                                ul {list - style - type: disc; }
+                                ol {list - style - type: decimal; }
+
+                                li {
+                                    margin - bottom: 5px;
+                }
+
+                                strong {font - weight: bold; }
+                                em, i {font - style: italic; }
+
+                                table {
+                                    width: 100%;
+                                border-collapse: collapse;
+                                margin: 10px 0;
+                }
+
+                                th, td {
+                                    border: 1px solid #ddd;
+                                padding: 8px;
+                                text-align: left;
+                }
+
+                                th {
+                                    background - color: #f2f2f2;
+                                font-weight: bold;
+                }
+                                `;
             container.appendChild(styleElement);
 
             // Create page elements
@@ -1232,10 +1276,10 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'header-info';
                 infoDiv.innerHTML = `
-                    <div class="class-info">${hierarchy?.className || ''} - ${hierarchy?.subjectName || ''}</div>
-                    <div>${hierarchy?.unitName || ''}${hierarchy?.subUnitName ? ' - ' + hierarchy.subUnitName : ''}</div>
-                    <div class="lesson-name">${lessonName}</div>
-                `;
+                                <div class="class-info">${hierarchy?.className || ''} - ${hierarchy?.subjectName || ''}</div>
+                                <div>${hierarchy?.unitName || ''}${hierarchy?.subUnitName ? ' - ' + hierarchy.subUnitName : ''}</div>
+                                <div class="lesson-name">${lessonName}</div>
+                                `;
                 headerDiv.appendChild(infoDiv);
                 pageDiv.appendChild(headerDiv);
 
@@ -1292,14 +1336,14 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
                         const allElements = element.querySelectorAll('*');
                         allElements.forEach(el => {
                             if (el instanceof HTMLElement) {
-                                el.style.fontFamily = "'TAU-Paalai', 'Nirmala UI', Arial, sans-serif";
+                                el.style.fontFamily = "'Noto Sans Tamil', 'TAU-Paalai', 'Nirmala UI', 'Latha', 'Vijaya', 'Tunga', Arial, sans-serif";
                             }
                         });
                     }
                 });
 
-                const imgData = canvas.toDataURL('image/png');
-                doc.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                doc.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
 
                 if (i < pageElements.length - 1) {
                     await new Promise(resolve => setTimeout(resolve, 100));
@@ -1308,69 +1352,22 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
 
             const pdfBlob = doc.output('blob');
 
-            // 7. Handle PDF distribution based on user role
-            if (isAdmin) {
-                // ADMIN: Direct download
-                const url = URL.createObjectURL(pdfBlob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `${lessonName.replace(/[^a-zA-Z0-9\u0B80-\u0BFF]/g, '_')}_${resourceInfo.label}_${new Date().toISOString().slice(0, 10)}.pdf`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
+            // Direct download for all users
+            const url = URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${lessonName.replace(/[^a-zA-Z0-9\u0B80-\u0BFF]/g, '_')}_${resourceInfo.label}_${new Date().toISOString().slice(0, 10)}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
 
-                // Increment download count
-                api.incrementLessonDownload(lessonId, resourceType).catch(console.error);
-                setStats(prev => prev ? { ...prev, downloads: prev.downloads + 1 } : { count: 0, downloads: 1 });
-
-                setSweetAlert({
-                    show: true,
-                    type: 'success',
-                    title: 'வெற்றி! | Success!',
-                    message: 'கோப்பு பதிவிறக்கம் தொடங்கியது!\n\nDownload started successfully!'
-                });
-            } else {
-                // USER: Send via email
-                setSweetAlert({
-                    show: true,
-                    type: 'loading',
-                    title: 'மின்னஞ்சல் அனுப்பப்படுகிறது | Sending Email',
-                    message: 'PDF மின்னஞ்சலுக்கு அனுப்பப்படுகிறது...\n\nSending PDF to email...'
-                });
-
-                const formData = new FormData();
-                formData.append('file', pdfBlob, `${lessonName}_${resourceInfo.label}.pdf`);
-                formData.append('email', email);
-                formData.append('title', `${resourceInfo.label}: ${lessonName}`);
-                formData.append('lessonId', lessonId);
-                formData.append('type', resourceType);
-                formData.append('userName', user.name || 'User');
-
-                const res = await fetch('/api/export/send-pdf', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                const responseData = await res.json();
-
-                if (res.ok && responseData.success) {
-                    // Increment download count
-                    api.incrementLessonDownload(lessonId, resourceType).catch(console.error);
-                    setStats(prev => prev ? { ...prev, downloads: prev.downloads + 1 } : { count: 0, downloads: 1 });
-
-                    setSweetAlert({
-                        show: true,
-                        type: 'success',
-                        title: 'வெற்றி! | Success!',
-                        message: `PDF உங்கள் மின்னஞ்சலுக்கு அனுப்பப்பட்டது!\n📧 ${email}\n\nஇன்பாக்ஸ் மற்றும் ஸ்பேம் போல்டரை சரிபார்க்கவும்.\n\nPDF sent to your email successfully!`
-                    });
-                } else {
-                    throw new Error(responseData.message || 'மின்னஞ்சல் அனுப்புவதில் பிழை');
-                }
-            }
-
-            setExportModalOpen(false);
+            setSweetAlert({
+                show: true,
+                type: 'success',
+                title: 'வெற்றி! | Success!',
+                message: 'கோப்பு பதிவிறக்கம் தொடங்கியது!\n\nDownload started successfully!'
+            });
 
         } catch (error: any) {
             console.error('Export Error:', error);
@@ -1378,10 +1375,8 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
             setSweetAlert({
                 show: true,
                 type: 'error',
-                title: user.role === 'admin' || user.canEdit ? 'பிழை | Error' : 'மின்னஞ்சல் தோல்வி | Email Failed',
-                message: (user.role === 'admin' || user.canEdit)
-                    ? `Export தோல்வியடைந்தது: ${error.message}\n\nதொடர்புக்கு: ${adminPhone}`
-                    : `PDF மின்னஞ்சலுக்கு அனுப்ப முடியவில்லை.\n(${error.message})\n\nதயவு செய்து நிர்வாகியை தொடர்பு கொள்ளவும்:\n📞 ${adminPhone}`,
+                title: 'பிழை | Error',
+                message: `Export தோல்வியடைந்தது: ${error.message}\n\nதொடர்புக்கு: ${adminPhone}`,
                 phone: adminPhone
             });
         } finally {
@@ -1393,15 +1388,7 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
     };
 
     const handleExportInitiate = () => {
-        if (canEdit) {
-            handleExportConfirm(user.email || 'admin@example.com');
-        } else {
-            if (user.email) {
-                handleExportConfirm(user.email);
-            } else {
-                setExportModalOpen(true);
-            }
-        }
+        handleExportConfirm();
     };
 
     const handleDownload = async (contentId: string) => {
@@ -1458,23 +1445,7 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
 
 
 
-    useEffect(() => {
-        const updateStats = async () => {
-            // Map resourceType to API type key
-            const validTypes = ['book', 'slide', 'video', 'audio', 'flashcard', 'worksheet', 'questionPaper', 'quiz', 'activity'];
-            const typeKey = resourceType as any;
-            if (!validTypes.includes(typeKey)) return;
 
-            try {
-                const h: any = await api.getHierarchy(lessonId);
-                const downloadCountKey = `${typeKey}DownloadCount`;
-                setStats({ count: 0, downloads: h[downloadCountKey] || 0 });
-            } catch (e) {
-                console.error('Failed to fetch stats', e);
-            }
-        };
-        updateStats();
-    }, [lessonId, resourceType]);
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full flex flex-col h-full overflow-hidden">
@@ -1489,7 +1460,7 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
                     <p className="text-sm text-gray-500 dark:text-gray-400 pl-1">{resourceInfo.description}</p>
                 </div>
 
-                <div className="flex items-center gap-2 sm:gap-4">
+                <div className="flex items-center gap-2 self-start sm:self-center">
                     {/* Added Font Size Control here too - Hidden for Worksheets */}
                     {!isWorksheet && <FontSizeControl />}
 
@@ -1502,9 +1473,6 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
                         >
                             <DownloadIcon className="w-5 h-5" />
                             <span className="hidden sm:inline">PDF</span>
-                            <span className="bg-white/20 px-1.5 py-0.5 rounded text-xs font-semibold ml-1">
-                                {formatCount(stats?.downloads || 0)}
-                            </span>
                         </button>
                     )}
 
@@ -1554,7 +1522,6 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
                                     isAdmin={canEdit}
                                     onExpandPdf={setFullscreenPdfUrl}
                                     onDownload={handleDownload}
-                                    onTogglePublish={handleTogglePublish}
                                 />
                             );
                         })}
@@ -1592,12 +1559,7 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
                 </div>
             )}
 
-            <ExportEmailModal
-                isOpen={exportModalOpen}
-                onClose={() => setExportModalOpen(false)}
-                onExport={handleExportConfirm}
-                isLoading={isExporting}
-            />
+
 
             {/* Hidden Container for PDF Content Staging */}
             <div

@@ -38,7 +38,16 @@ export const TeacherView: React.FC = () => {
     }, [state.lessonId, state.selectedResourceType, updateTeacherState]);
 
     // Check if device is mobile
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Use scroll persistence hook
     const { scrollElementRef, handleScroll } = useScrollPersistence(

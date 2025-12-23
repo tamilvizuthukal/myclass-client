@@ -67,8 +67,28 @@ const FullscreenSlideViewer: React.FC<{
     onClose: () => void;
     isMobile: boolean;
     isLandscape: boolean;
-}> = ({ content, onClose, isMobile, isLandscape }) => {
+}> = ({ content, onClose, isMobile: initialIsMobile, isLandscape: initialIsLandscape }) => {
     // Handle both base64 content and file-based content
+    const [isMobile, setIsMobile] = useState(initialIsMobile);
+    const [isLandscape, setIsLandscape] = useState(initialIsLandscape);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768);
+            setIsLandscape(window.innerWidth > window.innerHeight);
+        };
+
+        // Initial check
+        handleResize();
+
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('orientationchange', handleResize);
+        };
+    }, []);
+
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [currentSlide, setCurrentSlide] = useState(1);
     const [totalSlides, setTotalSlides] = useState(1);
@@ -326,12 +346,24 @@ const SlidePdfViewer: React.FC<{
 
     // Calculate optimal scale for full screen display
     useEffect(() => {
+        let retryCount = 0;
+        const maxRetries = 10;
+
         const calculateOptimalScale = () => {
             if (!pdfDoc || !containerRef.current) return;
 
             const container = containerRef.current;
             const containerWidth = container.clientWidth;
             const containerHeight = container.clientHeight;
+
+            // If container has no visible size (e.g. during rotation or modal animation), retry
+            if ((containerWidth === 0 || containerHeight === 0) && retryCount < maxRetries) {
+                retryCount++;
+                setTimeout(calculateOptimalScale, 100);
+                return;
+            }
+
+            if (containerWidth === 0 || containerHeight === 0) return;
 
             // Get the first page to calculate aspect ratio
             pdfDoc.getPage(currentSlide).then((page: any) => {
@@ -349,11 +381,21 @@ const SlidePdfViewer: React.FC<{
             });
         };
 
-        // Recalculate scale when window is resized
+        // Recalculate scale when window is resized OR orientation changes
         window.addEventListener('resize', calculateOptimalScale);
+        window.addEventListener('orientationchange', calculateOptimalScale);
+
+        // Initial calculation
         calculateOptimalScale();
 
-        return () => window.removeEventListener('resize', calculateOptimalScale);
+        // Additional delayed check for mobile rotation settling
+        const timer = setTimeout(calculateOptimalScale, 500);
+
+        return () => {
+            window.removeEventListener('resize', calculateOptimalScale);
+            window.removeEventListener('orientationchange', calculateOptimalScale);
+            clearTimeout(timer);
+        };
     }, [pdfDoc, currentSlide]);
 
     useEffect(() => {

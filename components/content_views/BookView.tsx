@@ -110,7 +110,7 @@ const SavedBookViewer: React.FC<{ content: Content; onRemove: () => void; isAdmi
                 )}
             </div>
 
-            <h2 className="text-lg font-semibold mb-4 pr-24 shrink-0 text-gray-800 dark:text-white truncate" title={content.title}>{content.title}</h2>
+            {/* <h2 className="text-lg font-semibold mb-4 pr-24 shrink-0 text-gray-800 dark:text-white truncate" title={content.title}>{content.title}</h2> */}
 
             <div className="flex-1 overflow-hidden rounded border dark:border-gray-700 bg-gray-100 dark:bg-gray-900 relative">
                 {displayUrl ? (
@@ -493,17 +493,6 @@ export const BookView: React.FC<BookViewProps> = ({ lessonId, user }) => {
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 h-full overflow-hidden flex flex-col">
-            <div className="hidden sm:flex justify-between items-center mb-6 shrink-0">
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-3">
-                        <BookIcon className="w-8 h-8 text-blue-600" />
-                        <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-blue-600 dark:from-white dark:to-blue-400">Book</h1>
-                    </div>
-                    {/* Stats Display */}
-                    {/* Stats Display Removed */}
-                </div>
-            </div>
-
             <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
                 {isLoading && <div className="text-center py-10">Loading book...</div>}
 

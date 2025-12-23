@@ -130,7 +130,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
         {!isFullScreen && (
           <div className="flex items-center space-x-3">
             <h1 className="text-sm sm:text-xl font-bold text-gray-800 dark:text-white truncate max-w-40 sm:max-w-none">
-              Learning Platform
+              Tamil Vizuthukal
             </h1>
           </div>
         )}

@@ -73,9 +73,35 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
     const contentContainer = document.createElement('div');
     contentContainer.innerHTML = htmlContent;
 
-    // Use top-level children (QA Pairs) directly as blocks, DO NOT flatten them.
-    // This ensures Q and A stay together unless the whole block is > page height.
-    const blockElements: HTMLElement[] = Array.from(contentContainer.children) as HTMLElement[];
+    // Flatten content logic to avoid duplication (Parent+Child)
+    let flatBlocks: HTMLElement[] = [];
+    const noteSections = Array.from(contentContainer.children);
+    noteSections.forEach((section) => {
+        const childNodes = Array.from(section.childNodes);
+        if (childNodes.length === 0 && section.textContent?.trim()) {
+            const p = document.createElement('p');
+            p.innerHTML = section.innerHTML;
+            flatBlocks.push(p);
+        } else {
+            childNodes.forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    flatBlocks.push(node as HTMLElement);
+                } else if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+                    const p = document.createElement('p');
+                    p.textContent = node.textContent;
+                    flatBlocks.push(p);
+                }
+            });
+        }
+    });
+
+    // Fallback if structure is unexpected
+    if (flatBlocks.length === 0 && contentContainer.children.length > 0) {
+        flatBlocks = Array.from(contentContainer.children) as HTMLElement[];
+    }
+
+    // Use flat blocks for pagination
+    const blockElements = flatBlocks;
 
     // Create a temporary div to measure heights accurately
     const tempDiv = document.createElement('div');
@@ -85,17 +111,17 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
         left: -9999px;
         top: -9999px;
         width: 700px;
-        font-family: 'TAU-Paalai', 'Nirmala UI', Arial, sans-serif;
+        font-family: 'Noto Sans Tamil', 'TAU-Paalai', 'Nirmala UI', 'Latha', 'Vijaya', 'Tunga', Arial, sans-serif;
         font-size: 14pt;
         line-height: 1.6;
         padding: 0;
         margin: 0;
         word-wrap: break-word;
-    `;
+        `;
     document.body.appendChild(tempDiv);
 
-    const maxHeightPerPage = 900;
-    const headingThreshold = 150;
+    const maxHeightPerPage = 880;
+    const headingThreshold = 250;
 
     let currentPageHTML = '';
     let currentHeight = 0;
@@ -118,22 +144,124 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
             }
         }
 
-        // Check if element fits on current page
-        if (currentHeight + elementHeight > maxHeightPerPage && currentPageHTML !== '') {
-            // If it doesn't fit, push current page and start new one
-            pages.push(currentPageHTML);
-            currentPageHTML = '';
-            currentHeight = 0;
+        // If the element is too tall for a full page, split it
+        if (elementHeight > maxHeightPerPage && (element.tagName === 'P' || element.tagName === 'DIV')) {
+            const textNodes = element.textContent?.split(/\s+/) || [];
+            let splitParts: string[] = [];
+            let currentPart = '';
+            tempDiv.innerHTML = `<${element.tagName.toLowerCase()} style="${clone.style.cssText}"></${element.tagName.toLowerCase()}>`;
+            const innerElem = tempDiv.firstChild as HTMLElement;
+
+            for (let word of textNodes) {
+                const testPart = currentPart + ' ' + word;
+                innerElem.textContent = testPart;
+                const testHeight = tempDiv.offsetHeight;
+                if (testHeight > maxHeightPerPage) {
+                    splitParts.push(currentPart.trim());
+                    currentPart = word;
+                } else {
+                    currentPart = testPart;
+                }
+            }
+            if (currentPart) splitParts.push(currentPart.trim());
+
+            for (let part of splitParts) {
+                const partClone = document.createElement(element.tagName.toLowerCase());
+                partClone.style.cssText = clone.style.cssText;
+                partClone.textContent = part;
+                tempDiv.innerHTML = '';
+                tempDiv.appendChild(partClone);
+                elementHeight = tempDiv.offsetHeight;
+
+                if (currentHeight + elementHeight > maxHeightPerPage && currentPageHTML !== '') {
+                    pages.push(currentPageHTML);
+                    currentPageHTML = '';
+                    currentHeight = 0;
+                }
+
+                currentPageHTML += partClone.outerHTML;
+                currentHeight += elementHeight;
+            }
+        } else if (element.tagName === 'UL' || element.tagName === 'OL') {
+            const listItems = Array.from(clone.children);
+            let listType = element.tagName.toLowerCase();
+            let currentListHTML = `<${listType}>`;
+            let listHeight = 0;
+
+            for (let li of listItems) {
+                tempDiv.innerHTML = '';
+                tempDiv.appendChild(li.cloneNode(true));
+                const liHeight = tempDiv.offsetHeight;
+
+                if (currentHeight + listHeight + liHeight > maxHeightPerPage && currentPageHTML !== '') {
+                    if (currentListHTML !== `<${listType}>`) {
+                        currentPageHTML += currentListHTML + `</${listType}>`;
+                    }
+                    pages.push(currentPageHTML);
+                    currentPageHTML = '';
+                    currentHeight = 0;
+                    currentListHTML = `<${listType}>`;
+                    listHeight = 0;
+                }
+
+                currentListHTML += li.outerHTML;
+                listHeight += liHeight;
+            }
+
+            if (currentListHTML !== `<${listType}>`) {
+                currentPageHTML += currentListHTML + `</${listType}>`;
+                currentHeight += listHeight;
+            }
+        } else if (element.tagName === 'TABLE') {
+            const tableBase = element.cloneNode(false) as HTMLElement;
+            const tempTable = document.createElement('div');
+            tempTable.appendChild(tableBase);
+            const openingTag = tempTable.innerHTML.replace(/<\/table>$/i, '');
+
+            // Use element.rows to get all rows even if in tbody/thead
+            const rows = Array.from((element as HTMLTableElement).querySelectorAll('tr'));
+
+            let tableHTML = openingTag;
+            let tableHeight = 0;
+
+            for (let row of rows) {
+                tempDiv.innerHTML = '';
+                // Wrap row in table for correct measurement
+                const measureTable = element.cloneNode(false) as HTMLElement;
+                measureTable.appendChild(row.cloneNode(true));
+                tempDiv.appendChild(measureTable);
+
+                const rowHeight = tempDiv.offsetHeight;
+
+                if (currentHeight + tableHeight + rowHeight > maxHeightPerPage && currentPageHTML !== '') {
+                    if (tableHTML !== openingTag) {
+                        currentPageHTML += tableHTML + '</table>';
+                    }
+                    pages.push(currentPageHTML);
+                    currentPageHTML = '';
+                    currentHeight = 0;
+                    tableHTML = openingTag;
+                    tableHeight = 0;
+                }
+
+                tableHTML += row.outerHTML;
+                tableHeight += rowHeight;
+            }
+
+            if (tableHTML !== openingTag) {
+                currentPageHTML += tableHTML + '</table>';
+                currentHeight += tableHeight;
+            }
+        } else {
+            if (currentHeight + elementHeight > maxHeightPerPage && currentPageHTML !== '') {
+                pages.push(currentPageHTML);
+                currentPageHTML = '';
+                currentHeight = 0;
+            }
+
+            currentPageHTML += clone.outerHTML;
+            currentHeight += elementHeight;
         }
-
-        // If the element is larger than a single page even when empty, we technically should split it.
-        // But for Q&A pairs which are complex structures, simple text splitting is destructive.
-        // We will assume Q&A pairs are reasonable size (10 list items).
-        // If one is massive, it will just overflow effectively or we'd need complex logic.
-        // For now, allow it to be added to the new page.
-
-        currentPageHTML += clone.outerHTML;
-        currentHeight += elementHeight;
 
         if (i < blockElements.length - 1) {
             const spacing = 8;
@@ -218,7 +346,7 @@ const QAEditorModal: React.FC<QAEditorModalProps> = ({ isOpen, onClose, onSave, 
                                 linebreak: {
                                     key: 13,
                                     shiftKey: true,
-                                    handler: function (range) {
+                                    handler: function (range: any) {
                                         this.quill.clipboard.dangerouslyPasteHTML(range.index, '<br>');
                                     }
                                 }
@@ -347,70 +475,6 @@ const QAEditorModal: React.FC<QAEditorModalProps> = ({ isOpen, onClose, onSave, 
     );
 };
 
-const ExportEmailModal: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    onExport: (email: string) => void;
-    isLoading: boolean;
-}> = ({ isOpen, onClose, onExport, isLoading }) => {
-    const [email, setEmail] = useState('');
-
-    if (!isOpen) return null;
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onExport(email);
-    };
-
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6 transform transition-all scale-100">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Export Q&A to PDF</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                        <XIcon className="w-6 h-6" />
-                    </button>
-                </div>
-
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-6 font-medium">
-                    Enter your email address to receive the PDF copy of these Q&A.
-                </p>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="your@email.com"
-                            required
-                            className="w-full px-4 py-2 border rounded-lg bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:text-white"
-                        />
-                    </div>
-
-                    <div className="pt-2">
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 transition-all font-bold shadow-md flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? (
-                                <span>Generating PDF...</span>
-                            ) : (
-                                <>
-                                    <span>Export & Send Mail</span>
-                                    <DownloadIcon className="w-5 h-5" />
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
-
 const QACard: React.FC<{
     item: Content;
     isOpen: boolean;
@@ -418,8 +482,7 @@ const QACard: React.FC<{
     onEdit: (c: Content) => void;
     onDelete: (id: string) => void;
     isAdmin: boolean;
-    onTogglePublish?: (item: Content) => void;
-}> = ({ item, isOpen, onToggle, onEdit, onDelete, isAdmin, onTogglePublish }) => {
+}> = ({ item, isOpen, onToggle, onEdit, onDelete, isAdmin }) => {
 
     const { session } = useSession();
     const meta = item.metadata as QAMetadata | undefined;
@@ -430,8 +493,7 @@ const QACard: React.FC<{
     return (
         <div className={`
             group bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 
-            border-l-4 ${item.isPublished ? 'border-l-green-500' : 'border-l-gray-300'}
-            border-y border-r border-gray-100 dark:border-gray-700 overflow-hidden mb-5 transform hover:-translate-y-1
+            border border-gray-200 dark:border-gray-700 overflow-hidden mb-5 transform hover:-translate-y-1
             ${isOpen ? 'ring-2 ring-blue-100 dark:ring-blue-900 shadow-md' : ''}
         `}>
             <div onClick={onToggle} className="relative w-full text-left p-5 sm:p-6 cursor-pointer bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50">
@@ -468,12 +530,6 @@ const QACard: React.FC<{
                     <div className="flex items-center shrink-0 gap-3">
                         {isAdmin && (
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-2 group-hover:translate-x-0" onClick={e => e.stopPropagation()}>
-                                {onTogglePublish && (
-                                    <PublishToggle
-                                        isPublished={!!item.isPublished}
-                                        onToggle={() => onTogglePublish(item)}
-                                    />
-                                )}
                                 <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="p-2 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/30 text-gray-400 hover:text-blue-600 transition-colors shadow-sm border border-transparent hover:border-blue-100 dark:hover:border-blue-800" title="Edit Q&A">
                                     <EditIcon className="w-4 h-4" />
                                 </button>
@@ -515,12 +571,7 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
     const [modalState, setModalState] = useState<{ isOpen: boolean; content: Content | null }>({ isOpen: false, content: null });
     const [confirmModalState, setConfirmModalState] = useState<{ isOpen: boolean; onConfirm: (() => void) | null }>({ isOpen: false, onConfirm: null });
     const [openCardId, setOpenCardId] = useState<string | null>(null);
-    const [stats, setStats] = useState<{ downloads: number } | null>(null);
-
-    // Export state
-    const [exportModalOpen, setExportModalOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
-    const { showToast } = useToast();
     const exportContainerRef = useRef<HTMLDivElement>(null);
 
     // SweetAlert state
@@ -536,18 +587,6 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
         title: '',
         message: ''
     });
-
-    useEffect(() => {
-        const updateStats = async () => {
-            try {
-                const h = await api.getHierarchy(lessonId);
-                setStats({ downloads: h.qaDownloadCount || 0 });
-            } catch (e) {
-                console.error('Failed to fetch stats', e);
-            }
-        };
-        updateStats();
-    }, [lessonId]);
 
     const qaItems = groupedContent?.[0]?.docs || [];
     const resourceType: ResourceType = 'qa';
@@ -572,18 +611,6 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
         setConfirmModalState({ isOpen: true, onConfirm: confirmAction });
     };
 
-    const handleTogglePublish = async (item: Content) => {
-        try {
-            const newStatus = !item.isPublished;
-            await api.updateContent(item._id, { isPublished: newStatus });
-            setVersion(v => v + 1);
-            showToast(`Q&A ${newStatus ? 'published' : 'unpublished'} successfully`, 'success');
-        } catch (error) {
-            console.error('Failed to toggle publish status:', error);
-            showToast('Failed to update publish status', 'error');
-        }
-    };
-
     const handleToggleCard = (id: string) => {
         const isExpanding = openCardId !== id;
         setOpenCardId(prev => prev === id ? null : id);
@@ -606,10 +633,10 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
         }
     };
 
-    // Export PDF Logic
-    const handleExportConfirm = async (email: string) => {
+    // Export PDF Logic - Direct Download
+    const handleExportConfirm = async () => {
         setIsExporting(true);
-        const isAdmin = user.role === 'admin' || user.canEdit;
+        // Direct download for everyone
 
         setSweetAlert({
             show: true,
@@ -674,8 +701,9 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
                     min-height: 1123px;
                     background: white;
                     position: relative;
-                    font-family: 'TAU-Paalai', 'Nirmala UI', Arial, sans-serif;
+                    font-family: 'Noto Sans Tamil', 'TAU-Paalai', 'Nirmala UI', 'Latha', 'Vijaya', 'Tunga', Arial, sans-serif;
                     page-break-after: always;
+                    overflow: hidden;
                 }
                
                 .pdf-header {
@@ -719,13 +747,13 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
                     position: absolute;
                     top: 100px;
                     left: 40px;
-                    right: 54px;
-                    bottom: 100px;
+                    right: 40px; /* Adjusted margin */
+                    bottom: 70px; /* Adjusted margin */
                     font-size: 14pt;
                     line-height: 1.6;
                     color: #000;
                     text-align: justify;
-                    overflow: visible;
+                    overflow: hidden;
                     z-index: 10;
                 }
                
@@ -862,7 +890,7 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
                 container.appendChild(pageDiv);
             });
 
-            // 6. Generate PDF with html2canvas (Same robust logic as NotesView)
+            // 6. Generate PDF with html2canvas
             const doc = new jsPDF('p', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
@@ -891,14 +919,14 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
                         const allElements = element.querySelectorAll('*');
                         allElements.forEach(el => {
                             if (el instanceof HTMLElement) {
-                                el.style.fontFamily = "'TAU-Paalai', 'Nirmala UI', Arial, sans-serif";
+                                el.style.fontFamily = "'Noto Sans Tamil', 'TAU-Paalai', 'Nirmala UI', 'Latha', 'Vijaya', 'Tunga', Arial, sans-serif";
                             }
                         });
                     }
                 });
 
-                const imgData = canvas.toDataURL('image/png');
-                doc.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                doc.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
 
                 if (i < pageElements.length - 1) {
                     await new Promise(resolve => setTimeout(resolve, 100));
@@ -907,65 +935,23 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
 
             const pdfBlob = doc.output('blob');
 
-            // 7. Handle PDF distribution based on user role
-            if (isAdmin) {
-                // ADMIN: Direct download
-                const url = URL.createObjectURL(pdfBlob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `${lessonName.replace(/[^a-zA-Z0-9\u0B80-\u0BFF]/g, '_')}_QA_${new Date().toISOString().slice(0, 10)}.pdf`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
+            // Direct download for all users
+            const url = URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${lessonName.replace(/[^a-zA-Z0-9\u0B80-\u0BFF]/g, '_')}_QA_${new Date().toISOString().slice(0, 10)}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
 
-                // Update download count
-                await api.incrementLessonDownload(lessonId, 'qa');
 
-                setSweetAlert({
-                    show: true,
-                    type: 'success',
-                    title: 'வெற்றி! | Success!',
-                    message: 'கோப்பு பதிவிறக்கம் தொடங்கியது!\n\nDownload started successfully!'
-                });
-            } else {
-                // USER: Send via email
-                setSweetAlert({
-                    show: true,
-                    type: 'loading',
-                    title: 'மின்னஞ்சல் அனுப்பப்படுகிறது | Sending Email',
-                    message: 'PDF மின்னஞ்சலுக்கு அனுப்பப்படுகிறது...\n\nSending PDF to email...'
-                });
-
-                const formData = new FormData();
-                formData.append('file', pdfBlob, `${lessonName}_QA.pdf`);
-                formData.append('email', email);
-                formData.append('title', `Q&A: ${lessonName}`);
-                formData.append('lessonId', lessonId);
-                formData.append('type', 'qa');
-                formData.append('userName', user.name || 'User');
-
-                const res = await fetch('/api/export/send-pdf', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                const responseData = await res.json();
-
-                if (res.ok && responseData.success) {
-                    await api.incrementLessonDownload(lessonId, 'qa').catch(() => { });
-                    setSweetAlert({
-                        show: true,
-                        type: 'success',
-                        title: 'வெற்றி! | Success!',
-                        message: `PDF உங்கள் மின்னஞ்சலுக்கு அனுப்பப்பட்டது!\n📧 ${email}\n\nஇன்பாக்ஸ் மற்றும் ஸ்பேம் போல்டரை சரிபார்க்கவும்.\n\nPDF sent to your email successfully!`
-                    });
-                } else {
-                    throw new Error(responseData.message || 'மின்னஞ்சல் அனுப்புவதில் பிழை');
-                }
-            }
-
-            setExportModalOpen(false);
+            setSweetAlert({
+                show: true,
+                type: 'success',
+                title: 'வெற்றி! | Success!',
+                message: 'கோப்பு பதிவிறக்கம் தொடங்கியது!\n\nDownload started successfully!'
+            });
 
         } catch (error: any) {
             console.error('Export Error:', error);
@@ -973,10 +959,8 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
             setSweetAlert({
                 show: true,
                 type: 'error',
-                title: user.role === 'admin' || user.canEdit ? 'பிழை | Error' : 'மின்னஞ்சல் தோல்வி | Email Failed',
-                message: (user.role === 'admin' || user.canEdit)
-                    ? `Export தோல்வியடைந்தது: ${error.message}\n\nதொடர்புக்கு: ${adminPhone}`
-                    : `PDF மின்னஞ்சலுக்கு அனுப்ப முடியவில்லை.\n(${error.message})\n\nதயவு செய்து நிர்வாகியை தொடர்பு கொள்ளவும்:\n📞 ${adminPhone}`,
+                title: 'பிழை | Error',
+                message: `Export தோல்வியடைந்தது: ${error.message}\n\nதொடர்புக்கு: ${adminPhone}`,
                 phone: adminPhone
             });
         } finally {
@@ -987,21 +971,9 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
         }
     };
 
-    const handleExportInitiate = () => {
-        if (canEdit) {
-            handleExportConfirm(user.email || 'admin@example.com');
-        } else {
-            if (user.email) {
-                handleExportConfirm(user.email);
-            } else {
-                setExportModalOpen(true);
-            }
-        }
-    };
-
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full flex flex-col h-full overflow-hidden">
-            <div className="flex justify-between items-center mb-6 shrink-0">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 shrink-0 gap-4 sm:gap-0">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-3">
                         <QAIcon className="w-8 h-8 text-emerald-600" />
@@ -1009,19 +981,16 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 self-end sm:self-auto">
                     {/* Export Button */}
                     {!isLoading && qaItems.length > 0 && (
                         <button
-                            onClick={handleExportInitiate}
+                            onClick={handleExportConfirm}
                             className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
                             title="Export to PDF"
                         >
                             <DownloadIcon className="w-5 h-5" />
                             <span className="hidden sm:inline">PDF</span>
-                            <span className="bg-white/20 px-1.5 py-0.5 rounded text-xs font-semibold ml-1">
-                                {formatCount(stats?.downloads || 0)}
-                            </span>
                         </button>
                     )}
 
@@ -1050,7 +1019,6 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
                                 onEdit={(c) => setModalState({ isOpen: true, content: c })}
                                 onDelete={handleDelete}
                                 isAdmin={canEdit}
-                                onTogglePublish={handleTogglePublish}
                             />
                         ))}
                     </div>
@@ -1066,13 +1034,6 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
 
             <QAEditorModal isOpen={modalState.isOpen} onClose={() => setModalState({ isOpen: false, content: null })} onSave={handleSave} contentToEdit={modalState.content} />
             <ConfirmModal isOpen={confirmModalState.isOpen} onClose={() => setConfirmModalState({ isOpen: false, onConfirm: null })} onConfirm={confirmModalState.onConfirm} title="Delete Q&A" message="Are you sure you want to delete this Q&A?" />
-
-            <ExportEmailModal
-                isOpen={exportModalOpen}
-                onClose={() => setExportModalOpen(false)}
-                onExport={handleExportConfirm}
-                isLoading={isExporting}
-            />
 
             {/* Hidden Container for PDF Content Staging */}
             <div

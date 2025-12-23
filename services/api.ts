@@ -71,6 +71,7 @@ export const getHierarchy = (lessonId: string): Promise<{
     subUnitName: string;
     lessonName: string;
     isPublished?: boolean;
+    qaDownloadCount?: number;
 }> => apiRequest(`/hierarchy/${lessonId}`);
 
 // --- Content (Read-Only, Published Content Only by default) ---
@@ -93,6 +94,26 @@ export const getCountsByLessonId = async (lessonId: string): Promise<ResourceCou
     });
     return counts;
 };
+
+// --- Content Management (CRUD) ---
+export const addContent = (data: Partial<Content>): Promise<Content> =>
+    apiRequest('/content', { method: 'POST', body: JSON.stringify(data) });
+
+export const updateContent = (id: string, data: Partial<Content>): Promise<Content> =>
+    apiRequest(`/content/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const deleteContent = (id: string): Promise<{ success: boolean }> =>
+    apiRequest(`/content/${id}`, { method: 'DELETE' });
+
+
+
+export const downloadContent = (id: string, resourceType?: string, lessonId?: string): Promise<{ success: boolean; fileUrl?: string; message?: string }> => {
+    // This typically triggers a direct download or returns a signed URL
+    // For now returning void as per current usage patterns implying visual handling
+    // Mock response to satisfy TS
+    return Promise.resolve({ success: false, message: 'Download function not fully implemented.' });
+};
+
 
 // --- User Profile Management ---
 export const getUserProfile = (id: string): Promise<{ success: boolean; user: User }> =>

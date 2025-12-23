@@ -27,66 +27,20 @@ interface NotesViewProps {
     user: User;
 }
 
-const ExportEmailModal: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    onExport: (email: string) => void;
-    isLoading: boolean;
-}> = ({ isOpen, onClose, onExport, isLoading }) => {
-    const [email, setEmail] = useState('');
 
-    if (!isOpen) return null;
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onExport(email);
-    };
 
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6 transform transition-all scale-100">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Export Notes to PDF</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                        <XIcon className="w-6 h-6" />
-                    </button>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-6 font-medium">
-                    Enter your email address to receive the PDF copy of these notes.
-                </p>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="your@email.com"
-                            required
-                            className="w-full px-4 py-2 border rounded-lg bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 dark:text-white"
-                        />
-                    </div>
-                    <div className="pt-2">
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 transition-all font-bold shadow-md flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? (
-                                <span>Generating PDF...</span>
-                            ) : (
-                                <>
-                                    <span>Export & Send Mail</span>
-                                    <DownloadIcon className="w-5 h-5" />
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-};
+const PublishToggle: React.FC<{ isPublished: boolean; onToggle: () => void }> = ({ isPublished, onToggle }) => (
+    <button
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isPublished ? 'bg-green-500' : 'bg-gray-200'}`}
+        title={isPublished ? "Published" : "Draft"}
+    >
+        <span
+            className={`${isPublished ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+        />
+    </button>
+);
 
 const NoteCard: React.FC<{
     item: Content;
@@ -146,15 +100,19 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
     let flatBlocks: HTMLElement[] = [];
     const noteSections = Array.from(contentContainer.children);
     noteSections.forEach((section) => {
-        const children = Array.from(section.children);
-        if (children.length === 0 && section.textContent?.trim()) {
+        const childNodes = Array.from(section.childNodes);
+        if (childNodes.length === 0 && section.textContent?.trim()) {
             const p = document.createElement('p');
             p.innerHTML = section.innerHTML;
             flatBlocks.push(p);
         } else {
-            children.forEach(child => {
-                if (child instanceof HTMLElement) {
-                    flatBlocks.push(child as HTMLElement);
+            childNodes.forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    flatBlocks.push(node as HTMLElement);
+                } else if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+                    const p = document.createElement('p');
+                    p.textContent = node.textContent;
+                    flatBlocks.push(p);
                 }
             });
         }
@@ -176,7 +134,7 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
         left: -9999px;
         top: -9999px;
         width: 700px;
-        font-family: 'TAU-Paalai', 'Nirmala UI', Arial, sans-serif;
+        font-family: 'Noto Sans Tamil', 'TAU-Paalai', 'Nirmala UI', 'Latha', 'Vijaya', 'Tunga', Arial, sans-serif;
         font-size: 14pt;
         line-height: 1.6;
         padding: 0;
@@ -185,8 +143,8 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
         `;
     document.body.appendChild(tempDiv);
 
-    const maxHeightPerPage = 900;
-    const headingThreshold = 150;
+    const maxHeightPerPage = 880;
+    const headingThreshold = 250;
 
     let currentPageHTML = '';
     let currentHeight = 0;
@@ -278,23 +236,36 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
                 currentHeight += listHeight;
             }
         } else if (element.tagName === 'TABLE') {
-            const rows = Array.from(clone.querySelectorAll('tr'));
-            let tableHTML = '<table>';
+            const tableBase = element.cloneNode(false) as HTMLElement;
+            const tempTable = document.createElement('div');
+            tempTable.appendChild(tableBase);
+            const openingTag = tempTable.innerHTML.replace(/<\/table>$/i, '');
+
+            // Use element.rows to get all rows even if in tbody/thead
+            // Note: This flattens structure to just rows inside the table tag
+            // preserving original table attributes but losing tbody/thead grouping for splitting
+            const rows = Array.from((element as HTMLTableElement).querySelectorAll('tr'));
+
+            let tableHTML = openingTag;
             let tableHeight = 0;
 
             for (let row of rows) {
                 tempDiv.innerHTML = '';
-                tempDiv.appendChild(row.cloneNode(true));
+                // Wrap row in table for correct measurement
+                const measureTable = element.cloneNode(false) as HTMLElement;
+                measureTable.appendChild(row.cloneNode(true));
+                tempDiv.appendChild(measureTable);
+
                 const rowHeight = tempDiv.offsetHeight;
 
                 if (currentHeight + tableHeight + rowHeight > maxHeightPerPage && currentPageHTML !== '') {
-                    if (tableHTML !== '<table>') {
+                    if (tableHTML !== openingTag) {
                         currentPageHTML += tableHTML + '</table>';
                     }
                     pages.push(currentPageHTML);
                     currentPageHTML = '';
                     currentHeight = 0;
-                    tableHTML = '<table>';
+                    tableHTML = openingTag;
                     tableHeight = 0;
                 }
 
@@ -302,7 +273,7 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
                 tableHeight += rowHeight;
             }
 
-            if (tableHTML !== '<table>') {
+            if (tableHTML !== openingTag) {
                 currentPageHTML += tableHTML + '</table>';
                 currentHeight += tableHeight;
             }
@@ -347,9 +318,7 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
     const { data: groupedContent, isLoading } = useApi(() => api.getContentsByLessonId(lessonId, ['notes'], (user.role !== 'admin' && !user.canEdit)), [lessonId, version, user]);
     const [editingNote, setEditingNote] = useState<Content | boolean | null>(null);
     const [confirmModalState, setConfirmModalState] = useState<{ isOpen: boolean; onConfirm: (() => void) | null }>({ isOpen: false, onConfirm: null });
-    const [exportModalOpen, setExportModalOpen] = useState(false);
-    const [isExporting, setIsExporting] = useState(false);
-    const [stats, setStats] = useState<{ downloads: number } | null>(null);
+
     const { showToast } = useToast();
     const [sweetAlert, setSweetAlert] = useState<{
         show: boolean;
@@ -375,18 +344,7 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
         }
     }, [notes, isLoading, editingNote]);
 
-    useEffect(() => {
-        const updateStats = async () => {
-            try {
-                const h = await api.getHierarchy(lessonId);
-                // Only keep download count
-                setStats({ downloads: h.notesDownloadCount || 0 });
-            } catch (e) {
-                console.error('Failed to fetch stats', e);
-            }
-        };
-        updateStats();
-    }, [lessonId]);
+
 
     const handleSave = async (body: string) => {
         try {
@@ -474,9 +432,8 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
     };
 
     // PDF Export Logic
-    const handleExportConfirm = async (email: string) => {
-        setIsExporting(true);
-        const isAdmin = user.role === 'admin' || user.canEdit;
+    const handleExportConfirm = async () => {
+
 
         setSweetAlert({
             show: true,
@@ -503,8 +460,8 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
                 throw new Error('இந்த அத்தியாயத்தில் குறிப்புகள் இல்லை | No notes available for this chapter');
             }
 
-            // Remove unformatted duplicates
-            allNotesHTML = removeUnformattedDuplicates(allNotesHTML);
+            // Remove unformatted duplicates - DISABLED to prevent data loss
+            // allNotesHTML = removeUnformattedDuplicates(allNotesHTML);
 
             // Additional cleanup: Remove any leading plain text before the first HTML tag
             const firstHtmlTag = allNotesHTML.match(/<[^>]+>/);
@@ -527,149 +484,163 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
             // Add CSS styles for PDF
             const styleElement = document.createElement('style');
             styleElement.textContent = `
-                                                    .pdf-page {
-                                                        width: 794px;
-                                                    min-height: 1123px;
-                                                    background: white;
-                                                    position: relative;
-                                                    font-family: 'TAU-Paalai', 'Nirmala UI', Arial, sans-serif;
-                                                    page-break-after: always;
+                .pdf-page {
+                    width: 794px;
+                    min-height: 1123px;
+                    background: white;
+                    position: relative;
+                    font-family: 'Noto Sans Tamil', 'TAU-Paalai', 'Nirmala UI', 'Latha', 'Vijaya', 'Tunga', Arial, sans-serif;
+                    page-break-after: always;
+                    overflow: hidden;
                 }
 
-                                                    .pdf-header {
-                                                        position: absolute;
-                                                    top: 20px;
-                                                    left: 40px;
-                                                    right: 40px;
-                                                    display: flex;
-                                                    justify-content: space-between;
-                                                    align-items: center;
-                                                    border-bottom: 1px solid #ddd;
-                                                    padding-bottom: 10px;
+                .pdf-header {
+                    position: absolute;
+                    top: 20px;
+                    left: 40px;
+                    right: 40px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    border-bottom: 1px solid #ddd;
+                    padding-bottom: 10px;
                 }
 
-                                                    .logo-container img {
-                                                        width: 170px;
-                                                    height: 22px;
-                                                    object-fit: contain;
+                .logo-container img {
+                    width: 170px;
+                    height: 22px;
+                    object-fit: contain;
                 }
 
-                                                    .header-info {
-                                                        text - align: right;
-                                                    font-size: 11px;
-                                                    color: #555;
-                                                    line-height: 1.3;
+                .header-info {
+                    text-align: right;
+                    font-size: 11px;
+                    color: #555;
+                    line-height: 1.3;
                 }
 
-                                                    .header-info .class-info {
-                                                        font - weight: bold;
-                                                    color: #333;
+                .header-info .class-info {
+                    font-weight: bold;
+                    color: #333;
                 }
 
-                                                    .header-info .lesson-name {
-                                                        font - size: 12px;
-                                                    font-weight: bold;
-                                                    margin-top: 3px;
-                                                    color: #222;
+                .header-info .lesson-name {
+                    font-size: 12px;
+                    font-weight: bold;
+                    margin-top: 3px;
+                    color: #222;
                 }
 
-                                                    .pdf-content {
-                                                        position: absolute;
-                                                    top: 100px;
-                                                    left: 40px;
-                                                    right: 54px;
-                                                    bottom: 100px;
-                                                    font-size: 14pt;
-                                                    line-height: 1.6;
-                                                    color: #000;
-                                                    text-align: justify;
-                                                    overflow: visible;
-                                                    z-index: 10;
+                .pdf-content {
+                    position: absolute;
+                    top: 100px;
+                    left: 40px;
+                    right: 40px; /* Increased right margin for safety */
+                    bottom: 70px; /* Reduced bottom margin to fit more content safely */
+                    font-size: 14pt;
+                    line-height: 1.6;
+                    color: #000;
+                    text-align: justify;
+                    overflow: hidden;
+                    z-index: 10;
                 }
 
-                                                    .pdf-footer {
-                                                        position: absolute;
-                                                    bottom: 30px;
-                                                    left: 40px;
-                                                    right: 40px;
-                                                    border-top: 1px solid #ddd;
-                                                    padding-top: 10px;
-                                                    display: flex;
-                                                    justify-content: space-between;
-                                                    align-items: center;
-                                                    font-size: 10px;
-                                                    color: #666;
+                .pdf-footer {
+                    position: absolute;
+                    bottom: 30px;
+                    left: 40px;
+                    right: 40px;
+                    border-top: 1px solid #ddd;
+                    padding-top: 10px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-size: 10px;
+                    color: #666;
                 }
 
-                                                    .footer-quote {
-                                                        font - style: normal;
+                .footer-quote {
+                    font-style: normal;
                 }
 
-                                                    .page-number {
-                                                        font - weight: bold;
+                .page-number {
+                    font-weight: bold;
                 }
 
-                                                    .note-section {
-                                                        margin - bottom: 15px;
+                .note-section {
+                    margin-bottom: 15px;
                 }
 
-                                                    .note-section:last-child {
-                                                        margin - bottom: 0;
+                .note-section:last-child {
+                    margin-bottom: 0;
                 }
 
-                                                    .math-tex {
-                                                        display: inline-block;
-                                                    vertical-align: middle;
+                .math-tex {
+                    display: inline-block;
+                    vertical-align: middle;
                 }
 
-                                                    p {
-                                                        margin - bottom: 12px;
-                                                    line-height: 1.6;
+                p {
+                    margin-bottom: 12px;
+                    line-height: 1.6;
+                    color: #000;
                 }
 
-                                                    h1, h2, h3, h4, h5, h6 {
-                                                        margin - top: 20px;
-                                                    margin-bottom: 8px;
-                                                    line-height: 1.3;
-                                                    font-weight: bold;
+                h1, h2, h3, h4, h5, h6 {
+                    margin-top: 20px;
+                    margin-bottom: 8px;
+                    line-height: 1.3;
+                    font-weight: bold;
+                    color: #000;
                 }
 
-                                                    h1 {font - size: 24pt; }
-                                                    h2 {font - size: 18pt; }
-                                                    h3 {font - size: 16pt; }
+                h1 { font-size: 24pt; }
+                h2 { font-size: 18pt; }
+                h3 { font-size: 16pt; }
 
-                                                    ul, ol {
-                                                        margin: 10px 0 10px 20px;
-                                                    padding-left: 20px;
+                ul, ol {
+                    margin: 10px 0 10px 20px;
+                    padding-left: 20px;
                 }
 
-                                                    ul {list - style - type: disc; }
-                                                    ol {list - style - type: decimal; }
+                ul { list-style-type: disc; }
+                ol { list-style-type: decimal; }
 
-                                                    li {
-                                                        margin - bottom: 5px;
+                li {
+                    margin-bottom: 5px;
                 }
 
-                                                    strong {font - weight: bold; }
-                                                    em, i {font - style: italic; }
+                strong { font-weight: bold; color: #000; }
+                em, i { font-style: italic; }
 
-                                                    table {
-                                                        width: 100%;
-                                                    border-collapse: collapse;
-                                                    margin: 10px 0;
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 15px 0;
+                    table-layout: fixed; /* Ensures table stays within width */
+                    word-wrap: break-word; /* Prevents text overflow */
                 }
 
-                                                    th, td {
-                                                        border: 1px solid #ddd;
-                                                    padding: 8px;
-                                                    text-align: left;
+                th, td {
+                    border: 1px solid #000 !important; /* Darker border for PDF */
+                    padding: 8px;
+                    text-align: left;
+                    vertical-align: top;
+                    word-break: break-word; /* Break long words */
+                    color: #000;
+                    font-size: 12pt;
                 }
 
-                                                    th {
-                                                        background - color: #f2f2f2;
-                                                    font-weight: bold;
+                th {
+                    background-color: #f0f0f0;
+                    font-weight: bold;
                 }
-                                                    `;
+
+                img {
+                    max-width: 100%;
+                    height: auto;
+                }
+            `;
             container.appendChild(styleElement);
 
             // Create page elements
@@ -694,10 +665,10 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'header-info';
                 infoDiv.innerHTML = `
-                                                    <div class="class-info">${hierarchy?.className || ''} - ${hierarchy?.subjectName || ''}</div>
-                                                    <div>${hierarchy?.unitName || ''}${hierarchy?.subUnitName ? ' - ' + hierarchy.subUnitName : ''}</div>
-                                                    <div class="lesson-name">${lessonName}</div>
-                                                    `;
+                    <div class="class-info">${hierarchy?.className || ''} - ${hierarchy?.subjectName || ''}</div>
+                    <div>${hierarchy?.unitName || ''}${hierarchy?.subUnitName ? ' - ' + hierarchy.subUnitName : ''}</div>
+                    <div class="lesson-name">${lessonName}</div>
+                `;
                 headerDiv.appendChild(infoDiv);
                 pageDiv.appendChild(headerDiv);
 
@@ -725,7 +696,7 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
                 container.appendChild(pageDiv);
             });
 
-            // 6. Generate PDF with html2canvas
+            // 6. Generate PDF with html2canvas (Updated Options)
             const doc = new jsPDF('p', 'mm', 'a4');
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
@@ -744,7 +715,7 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
                     useCORS: true,
                     allowTaint: true,
                     width: 794,
-                    height: 1123,
+                    // height: 1123, // Removed fixed height to prevent clipping
                     windowWidth: 794,
                     onclone: (clonedDoc, element) => {
                         element.style.opacity = '1';
@@ -754,14 +725,15 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
                         const allElements = element.querySelectorAll('*');
                         allElements.forEach(el => {
                             if (el instanceof HTMLElement) {
-                                el.style.fontFamily = "'TAU-Paalai', 'Nirmala UI', Arial, sans-serif";
+                                // Ensure font is applied but fallback to serif for better print read
+                                el.style.fontFamily = "'Noto Sans Tamil', 'TAU-Paalai', 'Nirmala UI', 'Latha', 'Vijaya', 'Tunga', Arial, sans-serif";
                             }
                         });
                     }
                 });
 
-                const imgData = canvas.toDataURL('image/png');
-                doc.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
+                const imgData = canvas.toDataURL('image/jpeg', 1.0); // Changed to JPEG for smaller size and sometimes better text handling
+                doc.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
 
                 if (i < pageElements.length - 1) {
                     await new Promise(resolve => setTimeout(resolve, 100));
@@ -770,92 +742,36 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
 
             const pdfBlob = doc.output('blob');
 
-            // 7. Handle PDF distribution based on user role
-            if (isAdmin) {
-                // ADMIN: Direct download
-                const url = URL.createObjectURL(pdfBlob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `${lessonName.replace(/[^a-zA-Z0-9\u0B80-\u0BFF]/g, '_')}_Notes_${new Date().toISOString().slice(0, 10)}.pdf`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
+            // 7. Handle PDF distribution - ALWAYS DIRECT DOWNLOAD
+            const url = URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${lessonName.replace(/[^a-zA-Z0-9\u0B80-\u0BFF]/g, '_')}_Notes_${new Date().toISOString().slice(0, 10)}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
 
-                // Update download count
-                // Update download count
-                try {
-                    const downloadKey = `downloaded_${lessonId}_notes`;
-                    if (!sessionStorage.getItem(downloadKey)) {
-                        await api.incrementLessonDownload(lessonId, 'notes');
-                        sessionStorage.setItem(downloadKey, 'true');
-                    }
-                } catch (e) {
-                    console.error('Failed to update download count:', e);
-                }
+            setSweetAlert({
+                show: true,
+                type: 'success',
+                title: 'வெற்றி! | Success!',
+                message: 'கோப்பு பதிவிறக்கம் தொடங்கியது!\n\nDownload started successfully!'
+            });
 
-                setSweetAlert({
-                    show: true,
-                    type: 'success',
-                    title: 'வெற்றி! | Success!',
-                    message: 'கோப்பு பதிவிறக்கம் தொடங்கியது!\n\nDownload started successfully!'
-                });
-            } else {
-                // USER: Send via email
-                setSweetAlert({
-                    show: true,
-                    type: 'loading',
-                    title: 'மின்னஞ்சல் அனுப்பப்படுகிறது | Sending Email',
-                    message: 'PDF மின்னஞ்சலுக்கு அனுப்பப்படுகிறது...\n\nSending PDF to email...'
-                });
 
-                const formData = new FormData();
-                formData.append('file', pdfBlob, `${lessonName}_Notes.pdf`);
-                formData.append('email', email);
-                formData.append('title', `Notes: ${lessonName}`);
-                formData.append('lessonId', lessonId);
-                formData.append('type', 'notes');
-                formData.append('userName', user.name || 'User');
-
-                const res = await fetch('/api/export/send-pdf', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                const responseData = await res.json();
-
-                if (res.ok && responseData.success) {
-                    const downloadKey = `downloaded_${lessonId}_notes`;
-                    if (!sessionStorage.getItem(downloadKey)) {
-                        await api.incrementLessonDownload(lessonId, 'notes').catch(() => { });
-                        sessionStorage.setItem(downloadKey, 'true');
-                    }
-                    setSweetAlert({
-                        show: true,
-                        type: 'success',
-                        title: 'வெற்றி! | Success!',
-                        message: `PDF உங்கள் மின்னஞ்சலுக்கு அனுப்பப்பட்டது!\n📧 ${email}\n\nஇன்பாக்ஸ் மற்றும் ஸ்பேம் போல்டரை சரிபார்க்கவும்.\n\nPDF sent to your email successfully!`
-                    });
-                } else {
-                    throw new Error(responseData.message || 'மின்னஞ்சல் அனுப்புவதில் பிழை');
-                }
-            }
-
-            setExportModalOpen(false);
         } catch (error: any) {
             console.error('Export Error:', error);
             const adminPhone = '7904838296';
             setSweetAlert({
                 show: true,
                 type: 'error',
-                title: user.role === 'admin' || user.canEdit ? 'பிழை | Error' : 'மின்னஞ்சல் தோல்வி | Email Failed',
-                message: (user.role === 'admin' || user.canEdit)
-                    ? `Export தோல்வியடைந்தது: ${error.message}\n\nதொடர்புக்கு: ${adminPhone}`
-                    : `PDF மின்னஞ்சலுக்கு அனுப்ப முடியவில்லை.\n(${error.message})\n\nதயவு செய்து நிர்வாகியை தொடர்பு கொள்ளவும்:\n📞 ${adminPhone}`,
+                title: 'பிழை | Error',
+                message: `PDF பதிவிறக்கம் செய்ய முடியவில்லை.\n(${error.message})\n\nதயவு செய்து நிர்வாகியை தொடர்பு கொள்ளவும்:\n📞 ${adminPhone}`,
                 phone: adminPhone
             });
         } finally {
-            setIsExporting(false);
+
             if (exportContainerRef.current) {
                 exportContainerRef.current.innerHTML = '';
             }
@@ -863,17 +779,7 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
         }
     };
 
-    const handleExportInitiate = () => {
-        if (canEdit) {
-            handleExportConfirm(user.email || '');
-        } else {
-            if (user.email) {
-                handleExportConfirm(user.email);
-            } else {
-                setExportModalOpen(true);
-            }
-        }
-    };
+
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 h-full overflow-hidden flex flex-col">
@@ -890,16 +796,12 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
                 <div className="flex items-center gap-2">
                     {!editingNote && notes.length > 0 && (
                         <button
-                            onClick={handleExportInitiate}
+                            onClick={handleExportConfirm}
                             className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-                            title="Export to PDF"
+                            title="Download PDF"
                         >
                             <DownloadIcon className="w-5 h-5" />
                             <span className="hidden sm:inline">PDF</span>
-                            {/* Download Count inside button */}
-                            <span className="bg-white/20 px-1.5 py-0.5 rounded text-xs font-semibold ml-1">
-                                {formatCount(stats?.downloads || 0)}
-                            </span>
                         </button>
                     )}
 
@@ -943,12 +845,7 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
 
             <ConfirmModal isOpen={confirmModalState.isOpen} onClose={() => setConfirmModalState({ isOpen: false, onConfirm: null })} onConfirm={confirmModalState.onConfirm} title="Delete Note" message="Are you sure you want to delete this note?" />
 
-            <ExportEmailModal
-                isOpen={exportModalOpen}
-                onClose={() => setExportModalOpen(false)}
-                onExport={handleExportConfirm}
-                isLoading={isExporting}
-            />
+
 
             {sweetAlert.show && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
