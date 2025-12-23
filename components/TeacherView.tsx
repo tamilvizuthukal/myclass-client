@@ -136,6 +136,7 @@ export const TeacherView: React.FC = () => {
                                     onSubUnitChange={handleSubUnitChange}
                                     onLessonChange={handleLessonChange}
                                     onlyPublished={true}
+                                    lockedClassName={user?.role === 'student' ? user?.class : undefined}
                                 />
                             </div>
                             <div className="flex-1 overflow-hidden">

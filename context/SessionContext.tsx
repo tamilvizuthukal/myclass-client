@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Session, AdminState, TeacherState, FontSize } from '../types';
 import { usePersistentNavigation } from '../hooks/usePersistentNavigation';
+import { getUserProfile } from '../services/api';
 
 interface SessionContextType {
     session: Session;
@@ -121,6 +123,28 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
             console.error("Failed to save session to localStorage", error);
         }
     }, [currentSession.user, currentSession.token, currentSession.fontSize]);
+
+    // Refresh user profile from server to ensure data is up-to-date (fixes "stale session" issues)
+    useEffect(() => {
+        if (currentSession.user?._id && currentSession.token) {
+            getUserProfile(currentSession.user._id)
+                .then(response => {
+                    if (response.success && response.user) {
+                        // Only update if there are differences to avoid infinite loops or unnecessary renders
+                        // Simple check: check if class is missing in session but present in DB
+                        if (!currentSession.user!.class && response.user.class) {
+                            console.log('[SessionContext] Syncing user profile from server (found missing class)');
+                            setSession(prev => ({ ...prev, user: response.user }));
+                        } else if (JSON.stringify(currentSession.user) !== JSON.stringify(response.user)) {
+                            // More comprehensive check could be done here, but let's just update if something major changed
+                            // For now, prioritize updating if fields are "Not assigned" but exist in DB
+                            setSession(prev => ({ ...prev, user: response.user }));
+                        }
+                    }
+                })
+                .catch(err => console.error('[SessionContext] Failed to refresh user profile', err));
+        }
+    }, [currentSession.token]); // Only run on mount or token change, not on every user change to avoid loop
 
     const login = useCallback((sessionData: { user: User, token: string }) => {
         setSession(prev => ({

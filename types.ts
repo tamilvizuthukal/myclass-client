@@ -12,6 +12,10 @@ export interface User {
   role: UserRole;
   status: 'active' | 'inactive';
   mobileNumber?: string;
+  class?: string; // e.g. "Class 8"
+  schoolName?: string;
+  district?: string;
+  subDistrict?: string;
   isFirstLogin: boolean;
   canEdit?: boolean; // New property for granular edit permissions
 }

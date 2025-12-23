@@ -20,6 +20,7 @@ interface SelectionModalProps {
   onSave: () => void;
   defaultClass?: string;
   onlyPublished?: boolean;
+  lockedClassName?: string;
 }
 
 const Selector: React.FC<{
@@ -71,7 +72,8 @@ export const SelectionModal: React.FC<SelectionModalProps> = ({
   onLessonChange,
   onSave,
   defaultClass,
-  onlyPublished = false
+  onlyPublished = false,
+  lockedClassName
 }) => {
   const { data: classes, isLoading: isLoadingClasses } = useApi<Class[]>(() => getClasses(onlyPublished), [onlyPublished]);
   const { data: subjects, isLoading: isLoadingSubjects } = useApi<Subject[]>(
@@ -154,7 +156,7 @@ export const SelectionModal: React.FC<SelectionModalProps> = ({
               onChange={(e) => onClassChange(e.target.value || null)}
               options={classes}
               isLoading={isLoadingClasses}
-              disabled={false}
+              disabled={!!lockedClassName}
             />
 
             {/* Subject Selector */}

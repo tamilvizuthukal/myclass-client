@@ -33,7 +33,7 @@ const apiRequest = async <T>(endpoint: string, options?: RequestInit): Promise<T
 export const loginUser = (username: string, password: string): Promise<{ user: User, token: string }> =>
     apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
 
-export const signupUser = (data: { username: string; password: string; name: string; email: string; mobileNumber?: string; role?: string }): Promise<{ user: User, token: string }> =>
+export const signupUser = (data: { username: string; password: string; name: string; email: string; mobileNumber?: string; role?: string; class?: string; schoolName?: string; district?: string; subDistrict?: string }): Promise<{ user: User, token: string }> =>
     apiRequest('/auth/signup', { method: 'POST', body: JSON.stringify(data) });
 
 // --- Hierarchy (Read-Only, Published Content Only by default) ---
@@ -126,7 +126,7 @@ export const downloadContent = (id: string, resourceType?: string, lessonId?: st
 export const getUserProfile = (id: string): Promise<{ success: boolean; user: User }> =>
     apiRequest(`/users/${id}/profile`);
 
-export const updateUserProfile = (id: string, data: { name: string; email: string; mobileNumber?: string }): Promise<{ success: boolean; user: User; message: string }> =>
+export const updateUserProfile = (id: string, data: { name: string; email: string; mobileNumber?: string; class?: string; schoolName?: string; district?: string; subDistrict?: string }): Promise<{ success: boolean; user: User; message: string }> =>
     apiRequest(`/users/${id}/update-profile`, { method: 'PUT', body: JSON.stringify(data) });
 
 export const changePassword = (id: string, data: { currentPassword: string; newPassword: string; confirmPassword: string }): Promise<{ success: boolean; message: string }> =>

@@ -534,7 +534,7 @@ router.put('/users/:id/update-profile', async (req, res) => {
     try {
         console.log(`[API] PUT /users/${req.params.id}/update-profile`);
         console.log('Body:', req.body);
-        const { name, email, mobileNumber } = req.body;
+        const { name, email, mobileNumber, class: userClass, schoolName, district, subDistrict } = req.body;
 
         if (!name || !email) {
             console.warn('[API] Missing name or email');
@@ -544,9 +544,13 @@ router.put('/users/:id/update-profile', async (req, res) => {
         }
 
         const updateData = { name, email };
-        if (mobileNumber) {
-            updateData.mobileNumber = mobileNumber;
-        }
+        if (mobileNumber !== undefined) updateData.mobileNumber = mobileNumber;
+        if (userClass !== undefined) updateData.class = userClass;
+        if (schoolName !== undefined) updateData.schoolName = schoolName;
+        if (district !== undefined) updateData.district = district;
+        if (subDistrict !== undefined) updateData.subDistrict = subDistrict;
+
+        console.log('[API] Update Data Prepared:', updateData);
 
         // Find user first to ensure existence
         const existingUser = await User.findById(req.params.id);
@@ -558,8 +562,10 @@ router.put('/users/:id/update-profile', async (req, res) => {
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
             updateData,
-            { new: true }
+            { new: true, runValidators: false }
         ).select('-password');
+
+        console.log('[API] Updated User Result:', updatedUser);
 
         console.log('[API] Profile updated successfully');
         res.json({

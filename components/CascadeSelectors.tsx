@@ -17,7 +17,9 @@ interface CascadeSelectorsProps {
   onLessonChange: (id: string | null) => void;
   onModalToggle?: (isOpen: boolean) => void;
   onlyPublished?: boolean;
+  lockedClassName?: string;
 }
+
 
 export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
   classId,
@@ -31,7 +33,8 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
   onSubUnitChange,
   onLessonChange,
   onModalToggle,
-  onlyPublished = false
+  onlyPublished = false,
+  lockedClassName
 }) => {
   const { data: classes, isLoading: isLoadingClasses } = useApi<Class[]>(() => getClasses(onlyPublished), [onlyPublished]);
   const { data: subjects, isLoading: isLoadingSubjects } = useApi<Subject[]>(
@@ -58,6 +61,32 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
     !!subUnitId,
     { keepPreviousData: false }
   );
+
+  // Effect: Enforce locked class based on profile
+  useEffect(() => {
+    if (lockedClassName && classes && classes.length > 0) {
+      const normalizedLocked = lockedClassName.toLowerCase().trim();
+      const lockedClass = classes.find(c => {
+        const normalizedName = c.name.toLowerCase().trim();
+        return normalizedName === normalizedLocked ||
+          normalizedName === normalizedLocked.replace('class ', '').trim() ||
+          normalizedName.replace('class ', '').trim() === normalizedLocked;
+      });
+
+      if (lockedClass) {
+        if (classId !== lockedClass._id) {
+          console.log('[CascadeSelectors] Enforcing locked class:', {
+            lockedName: lockedClassName,
+            matchedName: lockedClass.name,
+            id: lockedClass._id
+          });
+          onClassChange(lockedClass._id);
+        }
+      } else {
+        console.warn('[CascadeSelectors] Locked class name not found in available classes:', lockedClassName);
+      }
+    }
+  }, [lockedClassName, classes, classId, onClassChange]);
 
   // --- Auto-Selection Logic REMOVED for Strict Cascading ---
   // The user must manually select each step to ensure valid state.
@@ -190,7 +219,7 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
             onChange={(e) => onClassChange(e.target.value || null)}
             options={classes}
             isLoading={isLoadingClasses}
-            disabled={false}
+            disabled={!!lockedClassName} // Disable if locked
           />
           {classId && (
             <Selector
@@ -283,6 +312,7 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
         onSave={handleSave}
         defaultClass="8"
         onlyPublished={onlyPublished}
+        lockedClassName={lockedClassName}
       />
     </>
   );

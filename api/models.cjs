@@ -8,7 +8,14 @@ const userSchema = new mongoose.Schema({
     role: { type: String, enum: ['admin', 'teacher', 'student'], required: true },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
     isFirstLogin: { type: Boolean, default: true },
-    mobileNumber: { type: String },
+    mobileNumber: { type: String, required: true },
+
+    // New mandatory fields
+    class: { type: String, required: true },
+    schoolName: { type: String, required: true },
+    district: { type: String, required: true },
+    subDistrict: { type: String, required: true },
+
     canEdit: { type: Boolean, default: false },
     totalDownloads: { type: Number, default: 0 },
     worksheetDownloads: { type: Number, default: 0 }

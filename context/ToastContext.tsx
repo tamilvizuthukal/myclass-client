@@ -35,10 +35,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         <ToastContext.Provider value={{ showToast }}>
             {children}
             {/* 
-                Updated z-index to z-[9999] to ensure toasts always appear on top of 
-                full-screen modals (like PDF viewers) which usually use z-50.
+                Updated z-index to ensure toasts always appear on top of 
+                full-screen modals (like PDF viewers) and the header.
+                Using inline style to guarantee priority.
             */}
-            <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-3 pointer-events-none">
+            <div className="fixed top-4 right-4 flex flex-col gap-3 pointer-events-none" style={{ zIndex: 99999 }}>
                 {toasts.map((toast) => (
                     <ToastItem key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
                 ))}
