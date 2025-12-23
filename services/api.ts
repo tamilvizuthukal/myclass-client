@@ -33,6 +33,9 @@ const apiRequest = async <T>(endpoint: string, options?: RequestInit): Promise<T
 export const loginUser = (username: string, password: string): Promise<{ user: User, token: string }> =>
     apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
 
+export const signupUser = (data: { username: string; password: string; name: string; email: string; mobileNumber?: string; role?: string }): Promise<{ user: User, token: string }> =>
+    apiRequest('/auth/signup', { method: 'POST', body: JSON.stringify(data) });
+
 // --- Hierarchy (Read-Only, Published Content Only by default) ---
 const buildQuery = (params: Record<string, string | boolean | undefined>) => {
     const searchParams = new URLSearchParams();

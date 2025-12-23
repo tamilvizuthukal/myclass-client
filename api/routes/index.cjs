@@ -5,6 +5,7 @@ const fs = require('fs'); // Added fs
 const router = express.Router();
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { User, Class, Subject, Unit, SubUnit, Lesson, Content } = require('../models.cjs');
+const bcrypt = require('bcryptjs'); // Added bcrypt for password hashing
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
@@ -119,6 +120,53 @@ router.post('/auth/login', async (req, res) => {
             error: error.toString(),
             stack: error.stack
         });
+    }
+});
+
+// --- 1c. User Signup (POST) ---
+router.post('/auth/signup', async (req, res) => {
+    try {
+        console.log('=== SIGNUP DEBUG (POST) ===');
+        const { username, password, name, email, mobileNumber, role, class: userClass, schoolName, district, subDistrict } = req.body;
+
+        // Extended validation for new fields
+        if (!username || !password || !name || !email || !userClass || !schoolName || !district || !subDistrict || !mobileNumber) {
+            return res.status(400).json({
+                message: 'Missing required fields: All fields including School Name, District, and Sub-district are mandatory.'
+            });
+        }
+
+        const existingUser = await User.findOne({ username });
+        if (existingUser) {
+            return res.status(409).json({ message: 'Username already exists' });
+        }
+
+        // Check for existing email too if needed, but keeping consistent with existing logic for now
+
+        const newUser = new User({
+            username,
+            password, // Will be hashed by pre-save hook
+            name,
+            email,
+            mobileNumber,
+            class: userClass,
+            schoolName,
+            district,
+            subDistrict,
+            role: role || 'student',
+            isFirstLogin: false, // Set to false since they just created their account/password
+            status: 'active'
+        });
+
+        await newUser.save();
+
+        const token = `mock-token-${newUser._id}`;
+        const { password: _, ...userWithoutPass } = newUser.toObject();
+
+        res.status(201).json({ user: userWithoutPass, token, message: 'User created successfully' });
+    } catch (error) {
+        console.error('=== SIGNUP ERROR ===', error);
+        res.status(500).json({ message: error.message });
     }
 });
 

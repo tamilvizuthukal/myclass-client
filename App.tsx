@@ -1,5 +1,6 @@
 import React from 'react';
 import { Login } from './components/Login';
+import { Signup } from './components/Signup';
 import { TeacherView } from './components/TeacherView';
 import { FirstTimeLogin } from './components/FirstTimeLogin';
 import { SessionProvider, useSession } from './context/SessionContext';
@@ -9,11 +10,15 @@ import { setupDebugKeyboardShortcuts } from './utils/navigationUtils';
 const AppContent: React.FC = () => {
   const { session } = useSession();
   const currentUser = session.user;
+  const [showSignup, setShowSignup] = React.useState(false);
 
   if (!currentUser) {
-    return <Login />;
+    if (showSignup) {
+      return <Signup onLoginClick={() => setShowSignup(false)} />;
+    }
+    return <Login onSignupClick={() => setShowSignup(true)} />;
   }
-  
+
   if (currentUser.isFirstLogin) {
     return <FirstTimeLogin />;
   }

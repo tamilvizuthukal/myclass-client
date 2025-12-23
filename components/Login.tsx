@@ -1,15 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import * as api from '../services/api';
 import { useSession } from '../context/SessionContext';
 import { AnimatedBackground } from './AnimatedBackground';
 
-export const Login: React.FC = () => {
+interface LoginProps {
+  onSignupClick?: () => void;
+}
+
+// ... (imports)
+
+// ...
+
+export const Login: React.FC<LoginProps> = ({ onSignupClick }) => {
   const { login } = useSession();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Alternating Title State
+  const [titleIndex, setTitleIndex] = useState(0);
+  const titles = ["Tamil Vizuthukal", "தமிழ் விழுதுகள்"];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTitleIndex((prev) => (prev + 1) % titles.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +52,8 @@ export const Login: React.FC = () => {
     setShowPassword(!showPassword);
   };
 
+  // ...
+
   return (
     <div className="relative flex items-center justify-center min-h-screen p-4 sm:p-6 lg:p-8">
       {/* Animated Background */}
@@ -41,14 +62,20 @@ export const Login: React.FC = () => {
       {/* Login Form Container */}
       <div className="relative z-10 w-full max-w-md p-6 sm:p-8 space-y-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 mx-auto">
         <div className="text-center welcome-text">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white mb-2">
-            Tamil Vizuthukal
-          </h1>
+          <div className="h-10 flex items-center justify-center mb-2">
+            <span
+              key={titleIndex}
+              className={`text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 animate-fade-in-up transition-all duration-500 ${titleIndex === 1 ? 'font-tau-kabilar' : ''}`}
+            >
+              {titles[titleIndex]}
+            </span>
+          </div>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
             Please sign in to your account
           </p>
         </div>
         <form className="space-y-5 sm:space-y-6" onSubmit={handleSubmit}>
+
           <div className="edu-symbol">
             <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Username
@@ -112,6 +139,21 @@ export const Login: React.FC = () => {
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
+
+          {onSignupClick && (
+            <div className="text-center mt-4">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Don't have an account?{' '}
+                <button
+                  type="button"
+                  onClick={onSignupClick}
+                  className="font-medium text-blue-600 hover:text-blue-500 focus:outline-none underline transition-colors"
+                >
+                  Sign up
+                </button>
+              </p>
+            </div>
+          )}
         </form>
 
         <div className="text-center">
