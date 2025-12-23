@@ -166,10 +166,8 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
         <div className="flex items-center space-x-3 overflow-hidden h-10">
           <h1
             className={`text-sm sm:text-xl font-bold truncate bg-clip-text text-transparent pl-1 transform block
-              ${isTamilTitle
-                ? 'bg-gradient-to-l from-orange-600 to-red-600 dark:from-orange-400 dark:to-red-400 font-tau-kabilar'
-                : 'bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 font-sans'
-              }
+              bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400
+              ${isTamilTitle ? 'font-tau-kabilar' : 'font-sans'}
               ${getTransformClass()}
               `}
           >
