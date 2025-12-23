@@ -113,6 +113,45 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+
+  const [isTamilTitle, setIsTamilTitle] = useState(true);
+  const [animState, setAnimState] = useState<'visible' | 'out' | 'in-start'>('visible');
+
+  // Scroll roll-over animation
+  useEffect(() => {
+    const cycleTime = 10000; // 1000ms pause + 500ms animation
+    const interval = setInterval(() => {
+      // 1. Animate Out (Slide Up)
+      setAnimState('out');
+
+      // 2. Swap Text & Reset to Bottom (Hidden)
+      setTimeout(() => {
+        setIsTamilTitle(prev => !prev);
+        setAnimState('in-start');
+
+        // 3. Animate In (Slide Up to Center)
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setAnimState('visible');
+          });
+        });
+      }, 500); // Wait for exit animation to finish
+
+    }, cycleTime);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Determine classes based on animation state
+  const getTransformClass = () => {
+    switch (animState) {
+      case 'visible': return 'translate-y-0 opacity-100 transition-all duration-500 ease-out';
+      case 'out': return '-translate-y-8 opacity-0 transition-all duration-500 ease-in';
+      case 'in-start': return 'translate-y-8 opacity-0 transition-none duration-0'; // Instant jump to bottom
+      default: return 'translate-y-0 opacity-100';
+    }
+  };
+
   return (
     <header className="flex items-center justify-between px-2 sm:px-4 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 z-30 shrink-0">
       <div className="flex items-center space-x-2 sm:space-x-4">
@@ -124,16 +163,19 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
           <MenuIcon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600 dark:text-gray-300" />
         </button>
 
-
-
-        {/* Hide title text in fullscreen */}
-        {!isFullScreen && (
-          <div className="flex items-center space-x-3">
-            <h1 className="text-sm sm:text-xl font-bold text-gray-800 dark:text-white truncate max-w-40 sm:max-w-none">
-              Tamil Vizuthukal
-            </h1>
-          </div>
-        )}
+        <div className="flex items-center space-x-3 overflow-hidden h-10">
+          <h1
+            className={`text-sm sm:text-xl font-bold truncate bg-clip-text text-transparent pl-1 transform block
+              ${isTamilTitle
+                ? 'bg-gradient-to-l from-orange-600 to-red-600 dark:from-orange-400 dark:to-red-400 font-tau-kabilar'
+                : 'bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 font-sans'
+              }
+              ${getTransformClass()}
+              `}
+          >
+            {isTamilTitle ? 'தமிழ் விழுதுகள்' : 'Tamil Vizuthukal'}
+          </h1>
+        </div>
       </div>
       <div className="flex items-center space-x-1 sm:space-x-2">
         {/* Fullscreen button - Desktop only - Hidden on mobile */}

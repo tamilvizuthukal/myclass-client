@@ -25,8 +25,20 @@
   font-style: normal;
 }
 
+
 .font-tau-marutham {
   font-family: 'TAU-Marutham', 'Noto Sans Tamil', sans-serif !important;
+}
+
+@font-face {
+  font-family: 'TAU-Kabilar';
+  src: url('/fonts/TAU-Kabilar.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.font-tau-kabilar {
+  font-family: 'TAU-Kabilar', 'Noto Sans Tamil', sans-serif !important;
 }
 
 /* Floating Animation for Educational Elements */

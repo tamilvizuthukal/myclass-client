@@ -93,11 +93,14 @@ const FullscreenSlideViewer: React.FC<{
     const [currentSlide, setCurrentSlide] = useState(1);
     const [totalSlides, setTotalSlides] = useState(1);
 
-    const [touchStart, setTouchStart] = useState<number | null>(null);
-    const [touchEnd, setTouchEnd] = useState<number | null>(null);
+    const [touchStart, setTouchStart] = useState<{ x: number, y: number } | null>(null);
+    const [touchEnd, setTouchEnd] = useState<{ x: number, y: number } | null>(null);
     const viewerRef = useRef<any>(null);
     const [lastClickTime, setLastClickTime] = useState(0);
     const [showControls, setShowControls] = useState(false);
+
+    // Auto-rotate logic: If mobile and NOT landscape, we force rotation
+    const isRotated = isMobile && !isLandscape;
 
     useEffect(() => {
         const loadPdfFromFile = async () => {
@@ -132,26 +135,45 @@ const FullscreenSlideViewer: React.FC<{
     const minSwipeDistance = 50;
     const onTouchStart = (e: React.TouchEvent) => {
         setTouchEnd(null);
-        setTouchStart(e.targetTouches[0].clientX);
+        setTouchStart({
+            x: e.targetTouches[0].clientX,
+            y: e.targetTouches[0].clientY
+        });
     };
 
     const onTouchMove = (e: React.TouchEvent) => {
-        setTouchEnd(e.targetTouches[0].clientX);
+        setTouchEnd({
+            x: e.targetTouches[0].clientX,
+            y: e.targetTouches[0].clientY
+        });
     };
 
     const onTouchEnd = () => {
         if (!touchStart || !touchEnd) return;
 
-        const distance = touchStart - touchEnd;
-        const isLeftSwipe = distance > minSwipeDistance;
-        const isRightSwipe = distance < -minSwipeDistance;
+        let delta = 0;
 
-        if (isLeftSwipe && currentSlide < totalSlides) {
-            // Swipe left - next slide
+        if (isRotated) {
+            // In rotated mode (90deg CW):
+            // Visual Left (Next) is Physical Top (y decreases)
+            // Visual Right (Prev) is Physical Bottom (y increases)
+
+            // To go Next (Swipe Left visually): Finger moves towards Visual Left (Physical Top)
+            // startY > endY => delta positive
+            delta = touchStart.y - touchEnd.y;
+        } else {
+            // Normal mode
+            // Swipe Left (Next): startX > endX => delta positive
+            delta = touchStart.x - touchEnd.x;
+        }
+
+        const isNextSwipe = delta > minSwipeDistance;
+        const isPrevSwipe = delta < -minSwipeDistance;
+
+        if (isNextSwipe && currentSlide < totalSlides) {
             setCurrentSlide(prev => prev + 1);
         }
-        if (isRightSwipe && currentSlide > 1) {
-            // Swipe right - previous slide
+        if (isPrevSwipe && currentSlide > 1) {
             setCurrentSlide(prev => prev - 1);
         }
     };
@@ -161,11 +183,9 @@ const FullscreenSlideViewer: React.FC<{
         const handleKeyPress = (e: KeyboardEvent) => {
             if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
                 e.preventDefault();
-                // Arrow left/up - go to previous slide
                 setCurrentSlide(prev => Math.max(1, prev - 1));
             } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
                 e.preventDefault();
-                // Arrow right/down - go to next slide
                 setCurrentSlide(prev => Math.min(totalSlides, prev + 1));
             } else if (e.key === 'Escape') {
                 onClose();
@@ -186,7 +206,10 @@ const FullscreenSlideViewer: React.FC<{
     }, [lastClickTime, onClose]);
 
     // Handle click navigation (left/right sides - only 25% zones)
+    // Note: click coordinates might need adjustment in rotated mode, but touch is primary for mobile.
+    // We disable click nav on mobile to avoid confusion or conflicts with swipe
     const handleClickNavigation = useCallback((e: React.MouseEvent) => {
+        if (isMobile) return; // Disable click zones on mobile
         if (!viewerRef.current) return;
 
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -201,8 +224,7 @@ const FullscreenSlideViewer: React.FC<{
         else if (clickPercentage >= 75) {
             setCurrentSlide(prev => Math.min(totalSlides, prev + 1));
         }
-        // Middle 50% - no click navigation (reserved for swipe)
-    }, [totalSlides]);
+    }, [totalSlides, isMobile]);
 
     // Update total slides when PDF loads
     const handlePdfLoad = useCallback((pdf: any) => {
@@ -210,104 +232,87 @@ const FullscreenSlideViewer: React.FC<{
         setCurrentSlide(1);
     }, []);
 
-    if (!isLandscape && isMobile) {
-        return (
-            <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
-                <div className="text-center text-white p-8">
-                    <div className="w-24 h-24 mx-auto mb-6 border-4 border-white rounded-full flex items-center justify-center">
-                        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                    </div>
-                    <h2 className="text-2xl font-bold mb-4">Please rotate your device</h2>
-                    <p className="text-gray-300">Slides work best in landscape mode. Please rotate your device to continue.</p>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div
-            className="fixed inset-0 bg-black z-50 flex items-center justify-center"
+            className="fixed inset-0 bg-black z-50 flex items-center justify-center overflow-hidden touch-none"
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
         >
-            {/* Slide content area - True fullscreen without headers/footers */}
+            {/* 
+               Content Wrapper
+               Handles rotation if necessary.
+               If rotated (isRotated=true), we rotate 90deg CW.
+               Dimensions must be swapped: w=100vh, h=100vw.
+            */}
             <div
-                className="w-full h-full relative cursor-pointer select-none"
-                onClick={handleClickNavigation}
-                onDoubleClick={handleDoubleClick}
-                ref={viewerRef}
+                className={`relative transition-all duration-300 ease-in-out flex items-center justify-center ${isRotated
+                    ? 'w-[100vh] h-[100vw] rotate-90'
+                    : 'w-full h-full'
+                    }`}
             >
-                {pdfUrl ? (
-                    <SlidePdfViewer
-                        url={pdfUrl}
-                        currentSlide={currentSlide}
-                        onSlideChange={setCurrentSlide}
-                        onPdfLoad={handlePdfLoad}
-                        isMobile={isMobile}
-                    />
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center text-white">
-                        <div className="text-center">
-                            <SlideIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                            <p>Loading slides...</p>
-                            {content.body && !content.body.startsWith('data:application/pdf') && (
-                                <p className="text-sm text-gray-400 mt-2">No PDF data found</p>
-                            )}
+                {/* Slide content area - True fullscreen without headers/footers */}
+                <div
+                    className="w-full h-full relative cursor-pointer select-none"
+                    onClick={handleClickNavigation}
+                    onDoubleClick={handleDoubleClick}
+                    ref={viewerRef}
+                >
+                    {pdfUrl ? (
+                        <SlidePdfViewer
+                            url={pdfUrl}
+                            currentSlide={currentSlide}
+                            onSlideChange={setCurrentSlide}
+                            onPdfLoad={handlePdfLoad}
+                            isMobile={isMobile}
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-white">
+                            <div className="text-center">
+                                <SlideIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                                <p>Loading slides...</p>
+                                {content.body && !content.body.startsWith('data:application/pdf') && (
+                                    <p className="text-sm text-gray-400 mt-2">No PDF data found</p>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Top area with close button - shows on hover */}
-                <div
-                    className={`absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/50 to-transparent transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}
-                    onMouseEnter={() => setShowControls(true)}
-                    onMouseLeave={() => setShowControls(false)}
-                >
-                    {/* Close button - top right */}
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 bg-black/70 backdrop-blur-sm hover:bg-black/90 text-white p-2 rounded-full transition-all duration-200 hover:scale-110 hover:rotate-90"
-                        title="Close (ESC)"
+                    {/* Top area with close button - content relative */}
+                    <div
+                        className={`absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/50 to-transparent transition-opacity duration-300 ${showControls || isRotated ? 'opacity-100' : 'opacity-0'}`}
+                        onMouseEnter={() => setShowControls(true)}
+                        onMouseLeave={() => setShowControls(false)}
                     >
-                        <CloseIcon className="w-5 h-5" />
-                    </button>
+                        {/* Close button - top right */}
+                        <button
+                            onClick={onClose}
+                            className="absolute top-4 right-4 bg-black/70 backdrop-blur-sm hover:bg-black/90 text-white p-2 rounded-full transition-all duration-200 hover:scale-110 hover:rotate-90 z-50 pointer-events-auto"
+                            title="Close (ESC)"
+                        >
+                            <CloseIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Page counter - bottom left */}
+                    <div
+                        className={`absolute bottom-4 left-4 bg-black/70 backdrop-blur-sm px-4 py-2 rounded-lg text-white text-sm font-medium transition-opacity duration-300 ${showControls || isRotated ? 'opacity-100' : 'opacity-0'}`}
+                    >
+                        {currentSlide} / {totalSlides}
+                    </div>
+
+                    {/* Navigation hints - visual helpers */}
+                    {isMobile && (
+                        <>
+                            {/* Left side tap/swipe zone hint */}
+                            <div className="absolute left-0 top-[75px] w-1/4 h-[calc(100%-75px)] bg-transparent" />
+                            {/* Right side tap/swipe zone hint */}
+                            <div className="absolute right-0 top-[75px] w-1/4 h-[calc(100%-75px)] bg-transparent" />
+                            {/* Middle area */}
+                            <div className="absolute left-1/4 top-[75px] w-1/2 h-[calc(100%-75px)] bg-transparent border-l border-r border-white/5" />
+                        </>
+                    )}
                 </div>
-
-                {/* Page counter - bottom left, shown when controls are visible */}
-                <div
-                    className={`absolute bottom-4 left-4 bg-black/70 backdrop-blur-sm px-4 py-2 rounded-lg text-white text-sm font-medium transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}
-                >
-                    {currentSlide} / {totalSlides}
-                </div>
-
-                {/* Navigation hints - only visible on mobile */}
-                {isMobile && (
-                    <>
-                        {/* Left side tap indicator - 25% zone, starts 75px from top */}
-                        <div className="absolute left-0 top-[75px] w-1/4 h-[calc(100%-75px)] bg-transparent hover:bg-white/5 transition-colors" />
-                        {/* Right side tap indicator - 25% zone, starts 75px from top */}
-                        <div className="absolute right-0 top-[75px] w-1/4 h-[calc(100%-75px)] bg-transparent hover:bg-white/5 transition-colors" />
-                        {/* Middle area indicator for swipe - 50% zone, starts 75px from top */}
-                        <div className="absolute left-1/4 top-[75px] w-1/2 h-[calc(100%-75px)] bg-transparent hover:bg-blue-500/10 transition-colors border-l border-r border-blue-400/20" />
-                    </>
-                )}
-
-                {/* Visual indicators for desktop hover zones */}
-                {!isMobile && (
-                    <>
-                        {/* Left 25% click zone indicator, starts 75px from top */}
-                        <div className="absolute left-0 top-[75px] w-1/4 h-[calc(100%-75px)] bg-transparent hover:bg-white/3 transition-colors cursor-pointer" />
-                        {/* Right 25% click zone indicator, starts 75px from top */}
-                        <div className="absolute right-0 top-[75px] w-1/4 h-[calc(100%-75px)] bg-transparent hover:bg-white/3 transition-colors cursor-pointer" />
-                        {/* Middle 50% swipe zone indicator, starts 75px from top */}
-
-                    </>
-                )}
-
-
             </div>
         </div>
     );
