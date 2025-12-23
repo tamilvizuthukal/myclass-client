@@ -99,6 +99,10 @@ export const getCountsByLessonId = async (lessonId: string): Promise<ResourceCou
 export const addContent = (data: Partial<Content>): Promise<Content> =>
     apiRequest('/content', { method: 'POST', body: JSON.stringify(data) });
 
+export const addMultipleContent = async (contents: Partial<Content>[]): Promise<Content[]> => {
+    return Promise.all(contents.map(content => addContent(content)));
+};
+
 export const updateContent = (id: string, data: Partial<Content>): Promise<Content> =>
     apiRequest(`/content/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 

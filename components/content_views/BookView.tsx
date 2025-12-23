@@ -5,6 +5,7 @@ import * as api from '../../services/api';
 import { BookIcon } from '../icons/ResourceTypeIcons';
 import { TrashIcon, UploadCloudIcon, ExpandIcon, XIcon, SaveIcon, LinkIcon, CheckCircleIcon, EyeIcon } from '../icons/AdminIcons';
 import { UnpublishedContentMessage } from '../common/UnpublishedContentMessage';
+import { PublishToggle } from '../common/PublishToggle';
 import { ConfirmModal } from '../ConfirmModal';
 import { PdfViewer } from './PdfViewer';
 import { useToast } from '../../context/ToastContext';

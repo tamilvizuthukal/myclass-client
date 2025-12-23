@@ -5,6 +5,7 @@ import * as api from '../../services/api';
 import { VideoIcon } from '../icons/ResourceTypeIcons';
 import { TrashIcon, UploadCloudIcon, PlusIcon, EyeIcon } from '../icons/AdminIcons';
 import { UnpublishedContentMessage } from '../common/UnpublishedContentMessage';
+import { PublishToggle } from '../common/PublishToggle';
 import { ConfirmModal } from '../ConfirmModal';
 import { useToast } from '../../context/ToastContext';
 import { formatCount } from '../../utils/formatUtils';

@@ -1,6 +1,6 @@
 {
   "framework": "vite",
-  "installCommand": "npm install && cd api && npm install",
+  "installCommand": "npm install --include=dev && cd api && npm install",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [

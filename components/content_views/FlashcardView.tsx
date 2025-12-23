@@ -5,6 +5,7 @@ import * as api from '../../services/api';
 import { FlashcardIcon } from '../icons/ResourceTypeIcons';
 import { PlusIcon, EditIcon, TrashIcon, ImportIcon, ChevronRightIcon, ChevronLeftIcon, EyeIcon } from '../icons/AdminIcons';
 import { UnpublishedContentMessage } from '../common/UnpublishedContentMessage';
+import { PublishToggle } from '../common/PublishToggle';
 import { ConfirmModal } from '../ConfirmModal';
 import { ImportFlashcardsModal } from './ImportFlashcardsModal';
 import { Fireworks } from './Fireworks';
