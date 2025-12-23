@@ -56,7 +56,30 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [selectedSubUnitId, setSelectedSubUnitId] = useState<string | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
+    setIsDropdownOpen(false);
+  };
 
   // Update current class when selectedClass prop changes
   useEffect(() => {
@@ -234,6 +257,21 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
                 <LogoutIcon className="h-4 w-4" />
                 <span>Logout</span>
               </button>
+
+              {deferredPrompt && (
+                <>
+                  <hr className="border-gray-200 dark:border-gray-600 my-1" />
+                  <button
+                    onClick={handleInstallClick}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-3 transition-colors duration-150"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span>Install App</span>
+                  </button>
+                </>
+              )}
             </div>
           )}
 

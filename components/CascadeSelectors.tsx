@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useApi } from '../hooks/useApi';
 import { getClasses, getSubjectsByClassId, getUnitsBySubjectId, getSubUnitsByUnitId, getLessonsBySubUnitId } from '../services/api';
 import { Class, Subject, Unit, SubUnit, Lesson } from '../types';
@@ -183,14 +183,23 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
     return parts.join(' › ');
   };
 
-  // Auto-show modal when no selections exist
+  // Ref to track if we've already performed the initial auto-open check
+  const initialAutoOpenDone = useRef(false);
+
+  // Auto-show modal when Class or Subject is not selected (only once on load)
   useEffect(() => {
-    if (!hasSelections && classes && classes.length > 0) {
-      // Show modal when page loads and no selections are made
-      // setIsModalOpen(true); // DISABLED: Auto-opening modal can be annoying if user just wants to see the top bar.
-      // onModalToggle?.(true);
+    // Only proceed if we haven't checked yet and classes are loaded
+    if (!initialAutoOpenDone.current && classes && classes.length > 0) {
+      if (!classId || !subjectId) {
+        // Show modal when page loads and no Class/Subject is selected
+        console.log('[CascadeSelectors] Auto-opening modal due to missing selection:', { classId, subjectId });
+        setIsModalOpen(true);
+        onModalToggle?.(true);
+      }
+      // Mark as done so we don't annoy the user later
+      initialAutoOpenDone.current = true;
     }
-  }, [hasSelections, classes, onModalToggle]);
+  }, [classId, subjectId, classes, onModalToggle]);
 
   const handleModalOpen = () => {
     setIsModalOpen(true);
