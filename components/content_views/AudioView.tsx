@@ -309,15 +309,7 @@ const SavedAudioViewer: React.FC<{ content: Content; onRemove: () => void; isAdm
         <div className="relative group">
             {isAdmin && (
                 <div className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                    {onTogglePublish && (
-                        <button
-                            onClick={() => onTogglePublish(content)}
-                            className={`p-2 rounded-full backdrop-blur-sm shadow-sm transition-all ${content.isPublished ? 'bg-white/80 dark:bg-black/80 text-green-600' : 'bg-white/50 dark:bg-black/50 text-gray-500'}`}
-                            title={content.isPublished ? "Published (Click to Unpublish)" : "Draft (Click to Publish)"}
-                        >
-                            <CheckCircleIcon className="w-4 h-4" />
-                        </button>
-                    )}
+
                     <button onClick={onRemove} className="p-2 rounded-full bg-white/80 dark:bg-black/80 hover:bg-red-500 hover:text-white backdrop-blur-sm shadow-sm transition-all text-gray-600 dark:text-gray-300" title="Remove Audio">
                         <TrashIcon className="w-4 h-4" />
                     </button>

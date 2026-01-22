@@ -61,6 +61,133 @@ const useBase64ToBlobUrl = (base64String: string | undefined) => {
     return blobUrl;
 };
 
+// --- New Components for Normal View (Consecutive Pages) ---
+
+const PageRenderer: React.FC<{
+    pdfDoc: any;
+    pageNumber: number;
+}> = ({ pdfDoc, pageNumber }) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [isVisible, setIsVisible] = useState(false);
+    const renderTaskRef = useRef<any>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setIsVisible(true);
+                }
+            },
+            { rootMargin: '50% 0px' }
+        );
+
+        if (containerRef.current) {
+            observer.observe(containerRef.current);
+        }
+
+        return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
+        if (!isVisible || !pdfDoc || !canvasRef.current) return;
+
+        const renderPage = async () => {
+            try {
+                if (renderTaskRef.current) {
+                    renderTaskRef.current.cancel();
+                }
+
+                const page = await pdfDoc.getPage(pageNumber);
+                // Use a higher scale for better quality in normal view
+                const viewport = page.getViewport({ scale: 1.5 });
+                const canvas = canvasRef.current;
+                const context = canvas?.getContext('2d');
+
+                if (context && canvas) {
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    // Style for responsiveness
+                    canvas.style.width = '100%';
+                    canvas.style.height = 'auto';
+
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: viewport
+                    };
+
+                    const renderTask = page.render(renderContext);
+                    renderTaskRef.current = renderTask;
+
+                    await renderTask.promise;
+                }
+            } catch (error) {
+                // Ignore cancel errors
+            }
+        };
+
+        renderPage();
+    }, [isVisible, pdfDoc, pageNumber]);
+
+    return (
+        <div ref={containerRef} className="w-full bg-white shadow-sm mb-4 relative min-h-[300px]">
+            <canvas ref={canvasRef} className="block w-full h-auto" />
+            {!isVisible && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400">
+                    <span className="text-sm">Loading Page {pageNumber}...</span>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const ConsecutivePdfViewer: React.FC<{
+    url: string;
+    onPageClick: () => void;
+    onPageDoubleClick: () => void;
+    isMobile: boolean;
+}> = ({ url, onPageClick, onPageDoubleClick, isMobile }) => {
+    const [pdfDoc, setPdfDoc] = useState<any>(null);
+    const [numPages, setNumPages] = useState(0);
+
+    useEffect(() => {
+        const loadPdf = async () => {
+            try {
+                const loadingTask = pdfjsLib.getDocument(url);
+                const pdf = await loadingTask.promise;
+                setPdfDoc(pdf);
+                setNumPages(pdf.numPages);
+            } catch (e) {
+                console.error("Error loading consecutive PDF:", e);
+            }
+        };
+        loadPdf();
+    }, [url]);
+
+    return (
+        <div className="w-full h-full overflow-y-auto bg-gray-100 dark:bg-gray-900 scroll-smooth custom-scrollbar">
+            {pdfDoc && Array.from({ length: numPages }, (_, i) => i + 1).map(page => (
+                <div
+                    key={page}
+                    className="cursor-pointer transition-transform sm:hover:scale-[1.01] touch-pan-y"
+                    onClick={(e) => {
+                        // On Mobile, Single click does nothing or default.
+                        // On Desktop, Single click opens Fullscreen.
+                        if (!isMobile) onPageClick();
+                    }}
+                    onDoubleClick={(e) => {
+                        // On Mobile, Double click opens Fullscreen.
+                        if (isMobile) onPageDoubleClick();
+                    }}
+                >
+                    <PageRenderer pdfDoc={pdfDoc} pageNumber={page} />
+                </div>
+            ))}
+        </div>
+    );
+};
+
 // Full-screen slide viewer with navigation controls
 const FullscreenSlideViewer: React.FC<{
     content: Content;
@@ -196,14 +323,20 @@ const FullscreenSlideViewer: React.FC<{
         return () => window.removeEventListener('keydown', handleKeyPress);
     }, [totalSlides, onClose]);
 
-    // Handle double-click to exit fullscreen
+    // Handle double-click to exit fullscreen - DISABLED for Desktop as per request
     const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-        const currentTime = new Date().getTime();
-        if (currentTime - lastClickTime < 300) {
-            onClose();
-        }
-        setLastClickTime(currentTime);
-    }, [lastClickTime, onClose]);
+        // User requested to disable double click in Full Screen (Desktop)
+        // If mobile, they generally want double click to OPEN it, but once inside, 
+        // usually double click might zoom or exit.
+        // For now, we disable the "Exit on Double Click" feature entirely 
+        // or restrict it since the user explicitly said "Disable double click in this" (Desktop Full View).
+        if (!isMobile) return;
+
+        // Optional: Keep it for mobile if desired, or disable there too.
+        // Assuming "Disable double click" applies to the Full View general behavior requested.
+        // Let's disable it completely to be safe or just for Desktop.
+        // Code below is effectively disabled for desktop.
+    }, [isMobile]);
 
     // Handle click navigation (left/right sides - only 25% zones)
     // Note: click coordinates might need adjustment in rotated mode, but touch is primary for mobile.
@@ -232,6 +365,65 @@ const FullscreenSlideViewer: React.FC<{
         setCurrentSlide(1);
     }, []);
 
+    // Fullscreen API and Orientation Lock
+    useEffect(() => {
+        const requestFullScreenAndLock = async () => {
+            try {
+                const elem = document.documentElement;
+                if (!document.fullscreenElement) {
+                    if (elem.requestFullscreen) {
+                        await elem.requestFullscreen();
+                    } else if ((elem as any).webkitRequestFullscreen) {
+                        await (elem as any).webkitRequestFullscreen();
+                    }
+                }
+
+                if (isMobile && 'orientation' in screen && (screen.orientation as any).lock) {
+                    // Try to lock to landscape
+                    try {
+                        await (screen.orientation as any).lock('landscape');
+                    } catch (e) {
+                        // Fallback to CSS rotation if lock fails (already handled by isRotated logic below)
+                        console.warn("Orientation lock failed:", e);
+                    }
+                }
+            } catch (e) {
+                console.error("Fullscreen/Orientation error:", e);
+            }
+        };
+
+        requestFullScreenAndLock();
+
+        // Cleanup on exit
+        /*
+        return () => {
+             // We generally want to exit fullscreen when component unmounts
+             if (document.fullscreenElement) {
+                 document.exitFullscreen().catch(err => console.error("Exit fullscreen error", err));
+             }
+             if ('orientation' in screen && (screen.orientation as any).unlock) {
+                 (screen.orientation as any).unlock();
+             }
+        }; 
+        */
+        // NOTE: Cleanup is handled by the close button which unmounts this. 
+        // We should ensure exit logic is triggered. 
+
+    }, [isMobile]);
+
+    // Handle component unmount for cleanup
+    useEffect(() => {
+        return () => {
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => { });
+            }
+            if ('orientation' in screen && (screen.orientation as any).unlock) {
+                (screen.orientation as any).unlock();
+            }
+        }
+    }, []);
+
+
     return (
         <div
             className="fixed inset-0 bg-black z-50 flex items-center justify-center overflow-hidden touch-none"
@@ -244,7 +436,7 @@ const FullscreenSlideViewer: React.FC<{
                Handles rotation if necessary.
                If rotated (isRotated=true), we rotate 90deg CW.
                Dimensions must be swapped: w=100vh, h=100vw.
-            */}
+             */}
             <div
                 className={`relative transition-all duration-300 ease-in-out flex items-center justify-center ${isRotated
                     ? 'w-[100vh] h-[100vw] rotate-90'
@@ -524,14 +716,10 @@ const SavedSlideViewer: React.FC<{ content: Content; onRemove: () => void; isAdm
         // logic removed
     }, [content._id]);
 
-    // Handle double-click to enter fullscreen
-    const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-        const currentTime = new Date().getTime();
-        if (currentTime - lastClickTime < 300) {
-            onExpand();
-        }
-        setLastClickTime(currentTime);
-    }, [lastClickTime, onExpand]);
+    // Handle double-click (handled in ConsecutivePdfViewer now, or effectively disabled here if unused)
+    // The interaction is now managed by passing onPageClick/onPageDoubleClick to ConsecutivePdfViewer
+    // stored in onExpand
+    const handleDoubleClick = () => { };
 
     useEffect(() => {
         const checkMobile = () => {
@@ -551,22 +739,16 @@ const SavedSlideViewer: React.FC<{ content: Content; onRemove: () => void; isAdm
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md relative h-full flex flex-col">
             <div className="absolute top-4 right-4 flex gap-2 z-20">
-                {onTogglePublish && (
+
+                {!isMobile && (
                     <button
-                        onClick={(e) => { e.stopPropagation(); onTogglePublish(); }}
-                        className={`${isMobile ? 'p-3' : 'p-2'} rounded-full backdrop-blur-sm shadow-md transition-all ${content.isPublished ? 'bg-white/90 dark:bg-black/80 text-green-600' : 'bg-white/50 dark:bg-black/50 text-gray-500'}`}
-                        title={content.isPublished ? "Published" : "Draft"}
+                        onClick={onExpand}
+                        className={`${isMobile ? 'p-3' : 'p-2'} rounded-full bg-white/50 dark:bg-black/50 hover:bg-white/80 dark:hover:bg-black/80 backdrop-blur-sm shadow-md`}
+                        title="View Fullscreen"
                     >
-                        <CheckCircleIcon className={`${isMobile ? 'w-6 h-6' : 'w-5 h-5'}`} />
+                        <ExpandIcon className={`${isMobile ? 'w-6 h-6' : 'w-5 h-5'} text-gray-600 dark:text-gray-300`} />
                     </button>
                 )}
-                <button
-                    onClick={onExpand}
-                    className={`${isMobile ? 'p-3' : 'p-2'} rounded-full bg-white/50 dark:bg-black/50 hover:bg-white/80 dark:hover:bg-black/80 backdrop-blur-sm shadow-md`}
-                    title="View Fullscreen"
-                >
-                    <ExpandIcon className={`${isMobile ? 'w-6 h-6' : 'w-5 h-5'} text-gray-600 dark:text-gray-300`} />
-                </button>
                 {isAdmin && (
                     <button
                         onClick={onRemove}
@@ -578,31 +760,20 @@ const SavedSlideViewer: React.FC<{ content: Content; onRemove: () => void; isAdm
                 )}
             </div>
 
-            <h2 className="text-lg p-3 font-semibold pr-24 shrink-0 text-gray-800 dark:text-white truncate" title={content.title}>
-                {content.title}
-            </h2>
+            {!isMobile && (
+                <h2 className="text-lg p-3 font-semibold pr-24 shrink-0 text-gray-800 dark:text-white truncate" title={content.title}>
+                    {content.title}
+                </h2>
+            )}
 
             {pdfUrl ? (
-                <div
-                    className="flex-1 overflow-hidden rounded border dark:border-gray-700 bg-gray-100 dark:bg-gray-900 relative cursor-pointer"
-                    onClick={onExpand}
-                    onDoubleClick={handleDoubleClick}
-                    title="Double-click to view in fullscreen"
-                >
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-900">
-                        <div className="text-center p-8">
-                            <div className="w-20 h-20 mx-auto mb-4 bg-white dark:bg-gray-700 rounded-lg shadow-lg flex items-center justify-center">
-                                <SlideIcon className="w-10 h-10 text-blue-500 dark:text-blue-400" />
-                            </div>
-                            <p className="text-gray-700 dark:text-gray-200 font-semibold">PDF Slides Ready</p>
-                            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Double-click to open fullscreen</p>
-                            <p className="text-xs text-gray-400 mt-2">Use left/right clicks to navigate slides</p>
-                        </div>
-                    </div>
-                    {/* Hover hint */}
-                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/70 text-white text-xs px-2 py-1 rounded opacity-0 hover:opacity-100 transition-opacity">
-                        Double-click to enter fullscreen
-                    </div>
+                <div className="flex-1 overflow-hidden rounded border dark:border-gray-700 bg-gray-100 dark:bg-gray-900 relative">
+                    <ConsecutivePdfViewer
+                        url={pdfUrl}
+                        onPageClick={onExpand}
+                        onPageDoubleClick={onExpand}
+                        isMobile={isMobile}
+                    />
                 </div>
             ) : (
                 <div className="flex-1 aspect-[16/9] w-full bg-gray-200 dark:bg-gray-700 rounded border dark:border-gray-600 flex flex-col items-center justify-center text-center p-4">
@@ -951,18 +1122,8 @@ export const SlideView: React.FC<SlideViewProps> = ({ lessonId, user }) => {
     };
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 h-full overflow-hidden flex flex-col">
-            <div className="hidden sm:flex justify-between items-center mb-6 shrink-0">
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-3">
-                        <SlideIcon className="w-8 h-8 text-orange-500" />
-                        <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-orange-500 dark:from-white dark:to-orange-400">Slides</h1>
-                    </div>
-
-                </div>
-            </div>
-
-            <div className="flex-1 p-5 overflow-hidden min-h-0 flex flex-col">
+        <div className="p-1 sm:p-3 sm:pt-0 lg:p-8 lg:pt-4 h-full overflow-hidden flex flex-col">
+            <div className="flex-1 pt-3 overflow-hidden min-h-0 flex flex-col">
                 {isLoading && <div className="text-center py-10">Loading slides...</div>}
 
                 {!isLoading && slideContent && (

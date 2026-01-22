@@ -93,12 +93,17 @@ app.get('/', (req, res) => {
 // Server startup for direct Node.js execution
 export const startServer = async () => {
     try {
-        await connectToDatabase();
         const PORT = process.env.PORT || 5002;
         const server = app.listen(PORT, () => {
             console.log(`✓ API Server running on port ${PORT}`);
             console.log(`✓ Health check available at http://localhost:${PORT}/health`);
             console.log(`✓ API endpoints available at http://localhost:${PORT}/api`);
+
+            // Attempt to connect to DB in background, don't block server startup
+            connectToDatabase().catch(error => {
+                console.error('✗ Initial MongoDB connection failed:', error.message);
+                console.log('ℹ Server is running. Database connection will be retried on next request.');
+            });
         });
 
         // Increase timeout to 5 minutes for large uploads

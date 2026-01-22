@@ -495,6 +495,7 @@ router.get('/hierarchy/:lessonId', async (req, res) => {
             return res.status(400).json({ message: 'Invalid lesson ID' });
         }
 
+        // 1. Try finding as a Lesson (Deepest level)
         const populatedLesson = await Lesson.findById(lessonId)
             .populate({
                 path: 'subUnitId',
@@ -513,30 +514,66 @@ router.get('/hierarchy/:lessonId', async (req, res) => {
                 }
             });
 
-        if (!populatedLesson) {
-            return res.status(404).json({ message: 'Lesson not found' });
+        if (populatedLesson) {
+            return res.json({
+                className: populatedLesson.subUnitId?.unitId?.subjectId?.classId?.name || '',
+                subjectName: populatedLesson.subUnitId?.unitId?.subjectId?.name || '',
+                unitName: populatedLesson.subUnitId?.unitId?.name || '',
+                subUnitName: populatedLesson.subUnitId?.name || '',
+                lessonName: populatedLesson.name || '',
+                isPublished: populatedLesson.isPublished
+            });
         }
 
-        let className, subjectName, unitName, subUnitName, lessonName;
+        // 2. Try finding as a SubUnit (Intermediate level)
+        const populatedSubUnit = await SubUnit.findById(lessonId)
+            .populate({
+                path: 'unitId',
+                select: 'name subjectId',
+                populate: {
+                    path: 'subjectId',
+                    select: 'name classId',
+                    populate: {
+                        path: 'classId',
+                        select: 'name'
+                    }
+                }
+            });
 
-        if (populatedLesson?.subUnitId?.unitId?.subjectId?.classId?.name) {
-            className = populatedLesson.subUnitId.unitId.subjectId.classId.name;
-            subjectName = populatedLesson.subUnitId.unitId.subjectId.name;
-            unitName = populatedLesson.subUnitId.unitId.name;
-            subUnitName = populatedLesson.subUnitId.name;
-            lessonName = populatedLesson.name;
-        } else {
-            return res.status(404).json({ message: 'Incomplete hierarchy' });
+        if (populatedSubUnit) {
+            return res.json({
+                className: populatedSubUnit.unitId?.subjectId?.classId?.name || '',
+                subjectName: populatedSubUnit.unitId?.subjectId?.name || '',
+                unitName: populatedSubUnit.unitId?.name || '',
+                subUnitName: populatedSubUnit.name || '',
+                lessonName: '', // No lesson level
+                isPublished: populatedSubUnit.isPublished
+            });
         }
 
-        res.json({
-            className,
-            subjectName,
-            unitName,
-            subUnitName,
-            lessonName,
-            isPublished: populatedLesson.isPublished
-        });
+        // 3. Try finding as a Unit (Shallowest level supported for content)
+        const populatedUnit = await Unit.findById(lessonId)
+            .populate({
+                path: 'subjectId',
+                select: 'name classId',
+                populate: {
+                    path: 'classId',
+                    select: 'name'
+                }
+            });
+
+        if (populatedUnit) {
+            return res.json({
+                className: populatedUnit.subjectId?.classId?.name || '',
+                subjectName: populatedUnit.subjectId?.name || '',
+                unitName: populatedUnit.name || '',
+                subUnitName: '',
+                lessonName: '',
+                isPublished: populatedUnit.isPublished
+            });
+        }
+
+        return res.status(404).json({ message: 'Resource not found or incomplete hierarchy' });
 
     } catch (error) {
         console.error('Error fetching hierarchy:', error);
