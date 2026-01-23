@@ -528,17 +528,8 @@ const QACard: React.FC<{
                     </div>
 
                     <div className="flex items-center shrink-0 gap-3">
-                        {isAdmin && (
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-2 group-hover:translate-x-0" onClick={e => e.stopPropagation()}>
-                                <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="p-2 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/30 text-gray-400 hover:text-blue-600 transition-colors shadow-sm border border-transparent hover:border-blue-100 dark:hover:border-blue-800" title="Edit Q&A">
-                                    <EditIcon className="w-4 h-4" />
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); onDelete(item._id); }} className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-600 transition-colors shadow-sm border border-transparent hover:border-red-100 dark:hover:border-red-800" title="Delete Q&A">
-                                    <TrashIcon className="w-4 h-4" />
-                                </button>
-                            </div>
-                        )}
-                        <div className={`p-2 rounded-full bg-white dark:bg-gray-700 shadow-sm border border-gray-100 dark:border-gray-600 transition-all duration-300 ${isOpen ? 'rotate-90 bg-blue-50 dark:bg-blue-900/30 text-blue-600' : 'text-gray-400'}`}>
+
+                        <div className={`hidden sm:block p-2 rounded-full bg-white dark:bg-gray-700 shadow-sm border border-gray-100 dark:border-gray-600 transition-all duration-300 ${isOpen ? 'rotate-90 bg-blue-50 dark:bg-blue-900/30 text-blue-600' : 'text-gray-400'}`}>
                             <ChevronRightIcon className="w-5 h-5" />
                         </div>
                     </div>
@@ -973,35 +964,29 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId, user }) => {
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full flex flex-col h-full overflow-hidden">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 shrink-0 gap-4 sm:gap-0">
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-3">
-                        <QAIcon className="w-8 h-8 text-emerald-600" />
-                        <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-emerald-600 dark:from-white dark:to-emerald-400">Q-A & More</h1>
+            <div className="flex flex-row justify-between items-center mb-6 shrink-0 gap-4">
+                <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <QAIcon className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-600 shrink-0" />
+                        <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-emerald-600 dark:from-white dark:to-emerald-400 whitespace-nowrap leading-tight truncate">Q-A & More</h1>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-end sm:self-auto">
+                <div className="flex items-center gap-2 shrink-0">
                     {/* Export Button */}
-                    {!isLoading && qaItems.length > 0 && (
+                    {!isLoading && qaItems.length > 0 && (user.role === 'admin' || user.canDownload) && (
                         <button
                             onClick={handleExportConfirm}
-                            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                            className="flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
                             title="Export to PDF"
                         >
                             <DownloadIcon className="w-5 h-5" />
-                            <span className="hidden sm:inline">PDF</span>
                         </button>
                     )}
 
                     <FontSizeControl />
 
-                    {canEdit && (
-                        <button onClick={() => setModalState({ isOpen: true, content: null })} className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors" title="Add New Q&A">
-                            <PlusIcon className="w-5 h-5" />
-                            <span className="hidden sm:inline">Add New</span>
-                        </button>
-                    )}
+
                 </div>
             </div>
 

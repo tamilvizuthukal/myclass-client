@@ -307,14 +307,7 @@ const SavedAudioViewer: React.FC<{ content: Content; onRemove: () => void; isAdm
 
     return (
         <div className="relative group">
-            {isAdmin && (
-                <div className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
 
-                    <button onClick={onRemove} className="p-2 rounded-full bg-white/80 dark:bg-black/80 hover:bg-red-500 hover:text-white backdrop-blur-sm shadow-sm transition-all text-gray-600 dark:text-gray-300" title="Remove Audio">
-                        <TrashIcon className="w-4 h-4" />
-                    </button>
-                </div>
-            )}
 
             {audioSrc ? (
                 <CustomAudioPlayer src={audioSrc} title={content.title} />
@@ -688,12 +681,7 @@ export const AudioView: React.FC<AudioViewProps> = ({ lessonId, user }) => {
                     </div>
                 </div>
 
-                {canEdit && !showAddForm && (
-                    <button onClick={() => setShowAddForm(true)} className="flex items-center justify-center p-2.5 w-10 h-10 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors sm:px-4 sm:w-auto sm:h-auto" title="Add New Audio">
-                        <PlusIcon className="w-5 h-5" />
-                        <span className="hidden sm:inline sm:ml-2">Add New</span>
-                    </button>
-                )}
+
             </div>
 
             <div className="flex-1 overflow-y-auto min-h-0">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
-import { updateUserProfile, changePassword } from '../services/api';
+import { updateUserProfile, changePassword, requestTeacherAccess } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { useSession } from '../context/SessionContext';
 
@@ -69,6 +69,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack }) => {
         confirmPassword: '',
     });
 
+    const [isTeacherRequested, setIsTeacherRequested] = useState(false);
+
     // Update available sub-districts when district changes
     useEffect(() => {
         if (formData.district && KERALA_LOCATIONS[formData.district]) {
@@ -106,6 +108,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack }) => {
     const handleSaveProfile = async () => {
         setIsLoading(true);
         try {
+            // 1. Update Profile Data
             const response = await updateUserProfile(user._id, {
                 name: formData.name,
                 email: formData.email,
@@ -117,8 +120,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack }) => {
             });
 
             if (response.success && response.user) {
-                updateProfile(response.user);
-                showToast('Profile updated successfully!', 'success');
+                let updatedUser = response.user;
+
+                // 2. Handle Teacher Request if checked
+                if (isTeacherRequested && user.role === 'student' && user.teacherRequestStatus !== 'pending') {
+                    try {
+                        await requestTeacherAccess(user._id);
+                        updatedUser = { ...updatedUser, teacherRequestStatus: 'pending' };
+                        showToast('Profile updated and Teacher Access requested!', 'success');
+                    } catch (reqError) {
+                        console.error('Teacher request failed:', reqError);
+                        showToast('Profile updated, but failed to request teacher access.', 'warning');
+                    }
+                } else {
+                    showToast('Profile updated successfully!', 'success');
+                }
+
+                updateProfile(updatedUser);
                 setIsEditing(false);
             } else {
                 showToast(response.message || 'Failed to update profile.', 'error');
@@ -156,6 +174,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack }) => {
         } catch (error: any) {
             console.error('Error changing password:', error);
             showToast(error.message || 'Failed to change password. Please try again.', 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleRequestTeacher = async () => {
+        setIsLoading(true);
+        try {
+            await requestTeacherAccess(user._id);
+            const updatedUser = { ...user, teacherRequestStatus: 'pending' as const };
+            updateProfile(updatedUser);
+            showToast('Teacher access requested successfully!', 'success');
+        } catch (error: any) {
+            console.error('Error requesting teacher access:', error);
+            showToast(error.message || 'Failed to request teacher access.', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -307,6 +340,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack }) => {
                                     disabled
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                                 />
+                                {user.role === 'student' && user.teacherRequestStatus !== 'pending' && user.teacherRequestStatus !== 'approved' && (
+                                    <div className="flex items-center mt-3">
+                                        <input
+                                            type="checkbox"
+                                            id="teacherRequest"
+                                            checked={isTeacherRequested}
+                                            onChange={(e) => setIsTeacherRequested(e.target.checked)}
+                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                                        />
+                                        <label htmlFor="teacherRequest" className="ml-2 block text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                                            Request Teacher Access (School ID will be verified)
+                                        </label>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="md:col-span-2 flex space-x-3 pt-2">
@@ -473,6 +520,41 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack }) => {
                         </div>
                     )}
                 </div>
+                {/* Teacher Access Request Card */}
+                {user.role === 'student' && (
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 sm:p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">Teacher Access</h2>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div>
+                                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                                    Are you a teacher? Request upgrade to teacher account to access additional features.
+                                </p>
+                                {user.teacherRequestStatus === 'pending' && (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                                        Request Pending Approval
+                                    </span>
+                                )}
+                                {user.teacherRequestStatus === 'rejected' && (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                                        Request Rejected
+                                    </span>
+                                )}
+                            </div>
+
+                            {(user.teacherRequestStatus === 'none' || !user.teacherRequestStatus || user.teacherRequestStatus === 'rejected') && (
+                                <button
+                                    onClick={handleRequestTeacher}
+                                    disabled={isLoading}
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors duration-200 disabled:opacity-50 whitespace-nowrap"
+                                >
+                                    {isLoading ? 'Requesting...' : 'Request Access'}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

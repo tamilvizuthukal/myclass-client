@@ -558,9 +558,11 @@ const GenericEditorModal: React.FC<GenericEditorModalProps> = ({ isOpen, onClose
 };
 
 
-const ContentCard: React.FC<{ item: Content; onEdit: (c: Content) => void; onDelete: (id: string) => void; isAdmin: boolean; onExpandPdf?: (url: string) => void; onDownload?: (id: string) => void; onTogglePublish?: (item: Content) => void }> = ({ item, onEdit, onDelete, isAdmin, onExpandPdf, onDownload, onTogglePublish }) => {
+const ContentCard: React.FC<{ item: Content; onEdit: (c: Content) => void; onDelete: (id: string) => void; isAdmin: boolean; onExpandPdf?: (url: string) => void; onDownload?: (id: string) => void; onTogglePublish?: (item: Content) => void; resourceType?: ResourceType }> = ({ item, onEdit, onDelete, isAdmin, onExpandPdf, onDownload, onTogglePublish, resourceType }) => {
     const [isOpen, setIsOpen] = useState(false);
     // Check if this is a PDF-based content (either has fileId or is worksheet with file metadata)
+    // Also consider 'activity' as a special type
+    const isActivity = resourceType === 'activity';
     const isPdf = item.type === 'worksheet' && (item.metadata as any)?.fileId;
     const { session } = useSession();
 
@@ -596,6 +598,35 @@ const ContentCard: React.FC<{ item: Content; onEdit: (c: Content) => void; onDel
     };
 
     const pdfUrl = isPdf ? getPdfUrl() : null;
+
+    if (isActivity) {
+        return (
+            <div className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-4 content-card-activity">
+                <div
+                    className="w-full text-left p-5 flex flex-col relative bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50 cursor-pointer select-none"
+                    onClick={() => setIsOpen(!isOpen)}
+                >
+                    {/* Left Accent Bar */}
+                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl transition-colors duration-300 ${isOpen ? 'bg-green-500' : 'bg-purple-500'}`}></div>
+
+                    <div className="flex flex-col gap-4">
+                        {/* Question */}
+                        <div className="flex-1">
+                            <div className="prose dark:prose-invert max-w-none font-semibold text-lg text-gray-800 dark:text-white font-tau-paalai leading-snug" style={fontStyle} dangerouslySetInnerHTML={{ __html: processContentForHTML(item.title) }} />
+                        </div>
+
+                        {/* Answer - Collapsible */}
+                        {isOpen && (
+                            <div className="mt-2 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700 animate-fade-in">
+                                <div className="text-sm font-bold text-green-600 mb-1">Answer:</div>
+                                <div className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 font-tau-paalai" style={fontStyle} dangerouslySetInnerHTML={{ __html: processContentForHTML(item.body) }} />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     if (isPdf) {
         return (
@@ -651,12 +682,6 @@ const ContentCard: React.FC<{ item: Content; onEdit: (c: Content) => void; onDel
                             >
                                 <DownloadIcon className="w-5 h-5" />
                             </button>
-
-                            {isAdmin && (
-                                <button onClick={() => onDelete(item._id)} className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors" title="Delete">
-                                    <TrashIcon className="w-5 h-5" />
-                                </button>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -1449,18 +1474,18 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full flex flex-col h-full overflow-hidden">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <div className="flex flex-row justify-between items-center gap-4 mb-8">
                 <div>
                     <div className="flex items-center gap-3 mb-1">
                         <resourceInfo.Icon className={`w-8 h-8 ${resourceInfo.color}`} />
-                        <h2 className={`text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${resourceInfo.gradient}`}>
+                        <h2 className={`text-1xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${resourceInfo.gradient}`}>
                             {resourceInfo.label}
                         </h2>
                     </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400 pl-1">{resourceInfo.description}</p>
                 </div>
 
-                <div className="flex items-center gap-2 self-start sm:self-center">
+                <div className="flex items-center gap-2 shrink-0">
                     {/* Added Font Size Control here too - Hidden for Worksheets */}
                     {!isWorksheet && <FontSizeControl />}
 
@@ -1476,7 +1501,7 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
                         </button>
                     )}
 
-                    {canEdit && !isAddingPdf && (
+                    {canEdit && !isAddingPdf && resourceType !== 'activity' && resourceType !== 'worksheet' && resourceType !== 'question_paper' && (
                         <button onClick={handleAddClick} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors" title={`Add New ${resourceInfo.label}`}>
                             <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                             <span className="hidden sm:inline">Add New</span>
@@ -1522,6 +1547,7 @@ export const GenericContentView: React.FC<GenericContentViewProps> = ({ lessonId
                                     isAdmin={canEdit}
                                     onExpandPdf={setFullscreenPdfUrl}
                                     onDownload={handleDownload}
+                                    resourceType={resourceType}
                                 />
                             );
                         })}

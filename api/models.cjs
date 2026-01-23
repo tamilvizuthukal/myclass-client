@@ -16,7 +16,10 @@ const userSchema = new mongoose.Schema({
     district: { type: String, required: true },
     subDistrict: { type: String, required: true },
 
+    teacherRequestStatus: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' },
+
     canEdit: { type: Boolean, default: false },
+    canDownload: { type: Boolean, default: false }, // Controlled by Admin
     totalDownloads: { type: Number, default: 0 },
     worksheetDownloads: { type: Number, default: 0 }
 }, { timestamps: true });

@@ -293,7 +293,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ lessonId, user }) => {
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-3">
                             <QuizIcon className="w-8 h-8 text-rose-600" />
-                            <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-rose-600 dark:from-white dark:to-rose-400">Quiz</h1>
+                            <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-rose-600 dark:from-white dark:to-rose-400 whitespace-normal break-words leading-tight">Quiz</h1>
                         </div>
                     </div>
                 </div>
@@ -313,7 +313,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ lessonId, user }) => {
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-3">
                             <QuizIcon className="w-8 h-8 text-rose-600" />
-                            <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-rose-600 dark:from-white dark:to-rose-400">Select a Quiz</h1>
+                            <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-rose-600 dark:from-white dark:to-rose-400 whitespace-normal break-words leading-tight">Select a Quiz</h1>
                         </div>
                     </div>
                 </div>
@@ -429,7 +429,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ lessonId, user }) => {
                             </button>
                         )}
                         <QuizIcon className="w-8 h-8 text-rose-600" />
-                        <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-rose-600 dark:from-white dark:to-rose-400">{selectedQuiz?.title || 'Quiz'}</h1>
+                        <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-rose-600 dark:from-white dark:to-rose-400 whitespace-normal break-words leading-tight">{selectedQuiz?.title || 'Quiz'}</h1>
 
                         {/* View Count for Active Quiz */}
                         {selectedQuiz && (

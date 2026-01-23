@@ -135,6 +135,19 @@ export const changePassword = (id: string, data: { currentPassword: string; newP
 export const updateProfile = (id: string, data: { password: string; mobileNumber: string }): Promise<User> =>
     apiRequest(`/users/${id}/profile`, { method: 'PUT', body: JSON.stringify(data) });
 
+// --- Teacher Request Features ---
+export const requestTeacherAccess = (id: string): Promise<{ success: boolean; message: string }> =>
+    apiRequest(`/users/${id}/request-teacher`, { method: 'POST' });
+
+export const getTeacherRequests = (): Promise<User[]> =>
+    apiRequest(`/users/teacher-requests`);
+
+export const approveTeacherRequest = (id: string): Promise<{ success: boolean; message: string }> =>
+    apiRequest(`/users/${id}/approve-teacher`, { method: 'PUT' });
+
+export const rejectTeacherRequest = (id: string): Promise<{ success: boolean; message: string }> =>
+    apiRequest(`/users/${id}/reject-teacher`, { method: 'PUT' });
+
 // --- Helper Functions ---
 export const getBreadcrumbs = async (lessonId: string): Promise<string> => {
     // Placeholder - returns empty string

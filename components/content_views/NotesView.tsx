@@ -61,24 +61,7 @@ const NoteCard: React.FC<{
                 }}
                 dangerouslySetInnerHTML={{ __html: processContentForHTML(item.body) }}
             />
-            {isAdmin && (
-                <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity sm:opacity-0 md:group-hover:opacity-100">
-                    {onTogglePublish && (
-                        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-sm">
-                            <PublishToggle
-                                isPublished={!!item.isPublished}
-                                onToggle={() => onTogglePublish(item)}
-                            />
-                        </div>
-                    )}
-                    <button onClick={() => onEdit(item)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm" title="Edit Note">
-                        <EditIcon className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-                    </button>
-                    <button onClick={() => onDelete(item._id)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm" title="Delete Note">
-                        <TrashIcon className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-                    </button>
-                </div>
-            )}
+
         </div>
     );
 };
@@ -787,32 +770,26 @@ export const NotesView: React.FC<NotesViewProps> = ({ lessonId, user }) => {
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-3">
                         <NotesIcon className="w-8 h-8 text-amber-500" />
-                        <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-amber-500 dark:from-white dark:to-amber-400">Notes</h1>
+                        <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-amber-500 dark:from-white dark:to-amber-400 whitespace-normal break-words leading-tight">Notes</h1>
                     </div>
                     {/* View Count next to Title */}
                     {/* View Count Removed */}
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {!editingNote && notes.length > 0 && (
+                    {!editingNote && notes.length > 0 && (user.role === 'admin' || user.canDownload) && (
                         <button
                             onClick={handleExportConfirm}
-                            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                            className="flex items-center justify-center p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
                             title="Download PDF"
                         >
                             <DownloadIcon className="w-5 h-5" />
-                            <span className="hidden sm:inline">PDF</span>
                         </button>
                     )}
 
                     <FontSizeControl />
 
-                    {canEdit && !editingNote && (
-                        <button onClick={() => setEditingNote(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors" title="Add New Note">
-                            <PlusIcon className="w-5 h-5" />
-                            <span className="hidden sm:inline">Add New</span>
-                        </button>
-                    )}
+
                 </div>
             </div>
 

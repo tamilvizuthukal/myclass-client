@@ -209,21 +209,7 @@ const SavedVideoViewer: React.FC<{ content: Content; onRemove: () => void; isAdm
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 relative w-full">
-            {isAdmin && (
-                <div className="absolute top-4 right-4 z-10 flex gap-2">
-                    {onTogglePublish && (
-                        <div className="">
-                            <PublishToggle
-                                isPublished={!!content.isPublished}
-                                onToggle={() => onTogglePublish(content)}
-                            />
-                        </div>
-                    )}
-                    <button onClick={onRemove} className="p-2 rounded-full bg-white/50 dark:bg-black/50 hover:bg-white/80 dark:hover:bg-black/80 backdrop-blur-sm shadow-md" title="Remove Video">
-                        <TrashIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                    </button>
-                </div>
-            )}
+
             <h2 className="text-xl font-semibold mb-4 pr-12 truncate">{content.title}</h2>
 
             <div className="w-full">
@@ -709,16 +695,7 @@ export const VideoView: React.FC<VideoViewProps> = ({ lessonId, user }) => {
                     {/* View Count Removed */}
                 </div>
 
-                {canEdit && !showAddForm && (
-                    <button
-                        onClick={() => setShowAddForm(true)}
-                        className="flex items-center justify-center p-2.5 w-10 h-10 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors sm:px-4 sm:w-auto sm:h-auto"
-                        title="Add New Video"
-                    >
-                        <PlusIcon className="w-5 h-5" />
-                        <span className="hidden sm:inline sm:ml-2">Add New</span>
-                    </button>
-                )}
+
             </div>
 
             <div className="flex-1 overflow-y-auto min-h-0">

@@ -131,7 +131,7 @@ const PageRenderer: React.FC<{
     }, [isVisible, pdfDoc, pageNumber]);
 
     return (
-        <div ref={containerRef} className="w-full bg-white shadow-sm mb-4 relative min-h-[300px]">
+        <div ref={containerRef} className="w-full bg-white shadow-sm mb-4 relative">
             <canvas ref={canvasRef} className="block w-full h-auto" />
             {!isVisible && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400">
@@ -749,15 +749,7 @@ const SavedSlideViewer: React.FC<{ content: Content; onRemove: () => void; isAdm
                         <ExpandIcon className={`${isMobile ? 'w-6 h-6' : 'w-5 h-5'} text-gray-600 dark:text-gray-300`} />
                     </button>
                 )}
-                {isAdmin && (
-                    <button
-                        onClick={onRemove}
-                        className={`${isMobile ? 'p-3' : 'p-2'} rounded-full bg-white/50 dark:bg-black/50 hover:bg-white/80 dark:hover:bg-black/80 backdrop-blur-sm shadow-md`}
-                        title="Remove Slides"
-                    >
-                        <TrashIcon className={`${isMobile ? 'w-6 h-6' : 'w-5 h-5'} text-gray-600 dark:text-gray-300`} />
-                    </button>
-                )}
+
             </div>
 
             {!isMobile && (
@@ -1137,18 +1129,10 @@ export const SlideView: React.FC<SlideViewProps> = ({ lessonId, user }) => {
                 )}
 
                 {!isLoading && !slideContent && (
-                    canEdit ? (
-                        <UploadForm
-                            lessonId={lessonId}
-                            onUpload={() => setVersion(v => v + 1)}
-                            onExpand={() => setFullscreenMode(true)}
-                        />
-                    ) : (
-                        <div className="text-center py-20 bg-white dark:bg-gray-800/50 rounded-lg">
-                            <SlideIcon className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600" />
-                            <p className="mt-4 text-gray-500">No slides available.</p>
-                        </div>
-                    )
+                    <div className="text-center py-20 bg-white dark:bg-gray-800/50 rounded-lg">
+                        <SlideIcon className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600" />
+                        <p className="mt-4 text-gray-500">No slides available.</p>
+                    </div>
                 )}
             </div>
 

@@ -18,6 +18,8 @@ export interface User {
   subDistrict?: string;
   isFirstLogin: boolean;
   canEdit?: boolean; // New property for granular edit permissions
+  canDownload?: boolean; // Permission to download content
+  teacherRequestStatus?: 'none' | 'pending' | 'approved' | 'rejected';
 }
 
 export interface Class {

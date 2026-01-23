@@ -45,6 +45,7 @@ export const Signup: React.FC<SignupProps> = ({ onLoginClick }) => {
 
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [isTeacher, setIsTeacher] = useState(false);
 
     // Alternating Title State
     const [titleIndex, setTitleIndex] = useState(0);
@@ -101,7 +102,11 @@ export const Signup: React.FC<SignupProps> = ({ onLoginClick }) => {
         }
 
         try {
-            const sessionData = await api.signupUser(formData);
+            const signupData = {
+                ...formData,
+                role: isTeacher ? 'teacher' : 'student'
+            };
+            const sessionData = await api.signupUser(signupData);
 
             // Success Alert
             await Swal.fire({
@@ -350,6 +355,19 @@ export const Signup: React.FC<SignupProps> = ({ onLoginClick }) => {
                                     </svg>
                                 )}
                             </button>
+                        </div>
+
+                        <div className="flex items-center">
+                            <input
+                                id="isTeacher"
+                                type="checkbox"
+                                checked={isTeacher}
+                                onChange={(e) => setIsTeacher(e.target.checked)}
+                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                            />
+                            <label htmlFor="isTeacher" className="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">
+                                I am a Teacher (Request teacher access)
+                            </label>
                         </div>
                     </div>
 

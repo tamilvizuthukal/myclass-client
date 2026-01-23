@@ -70,27 +70,7 @@ const BeautifulWorksheetCard: React.FC<{
                     </div>
                 </div>
 
-                {/* Admin Actions */}
-                {isAdmin && (
-                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all z-10">
-                        {onTogglePublish && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onTogglePublish(content); }}
-                                className={`p-1.5 rounded-full backdrop-blur-sm shadow-md transition-colors ${content.isPublished ? 'bg-blue-600/90 hover:bg-blue-700 text-white' : 'bg-white/90 hover:bg-gray-100 text-gray-500'}`}
-                                title={content.isPublished ? "Published" : "Draft"}
-                            >
-                                {content.isPublished ? <CheckCircleIcon className="w-4 h-4" /> : <div className="w-4 h-4 rounded-full border-2 border-gray-400" />}
-                            </button>
-                        )}
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onRemove(); }}
-                            className="p-1.5 rounded-full bg-black/20 hover:bg-red-500 text-white backdrop-blur-sm"
-                            title="Delete"
-                        >
-                            <TrashIcon className="w-4 h-4" />
-                        </button>
-                    </div>
-                )}
+
             </div>
 
             {/* Content Body */}
@@ -445,12 +425,7 @@ export const WorksheetView: React.FC<WorksheetViewProps> = ({ lessonId, user }) 
                     {/* View Count Removed */}
                 </div>
 
-                {canEdit && (
-                    <button onClick={() => setShowUploadForm(!showUploadForm)} className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-                        <PlusIcon className={`w-5 h-5 mr-1 transition-transform ${showUploadForm ? 'rotate-45' : ''}`} />
-                        {showUploadForm ? 'Cancel' : 'Add New'}
-                    </button>
-                )}
+
             </div>
 
             <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">

@@ -3,6 +3,7 @@ import { User } from '../types';
 import { FullScreenIcon, ExitFullScreenIcon, LogoutIcon, SettingsIcon, UsersIcon } from './icons/AdminIcons';
 import { SelectionModal } from './SelectionModal';
 import { ResolutionModal } from './ResolutionModal';
+import { TeacherRequestsModal } from './TeacherRequestsModal';
 
 
 interface HeaderProps {
@@ -50,6 +51,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
   const [isResolutionModalOpen, setIsResolutionModalOpen] = useState(false);
+  const [isTeacherRequestsModalOpen, setIsTeacherRequestsModalOpen] = useState(false);
   const [currentClass, setCurrentClass] = useState(selectedClass || '8');
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
@@ -176,7 +178,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
   };
 
   return (
-    <header className="flex items-center justify-between px-2 sm:px-4 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 z-30 shrink-0">
+    <header className="flex items-center justify-between px-2 sm:px-4 h-12 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 z-30 shrink-0">
       <div className="flex items-center space-x-2 sm:space-x-4">
         <button
           onClick={onToggleSidebar}
@@ -188,7 +190,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
 
         <div className="flex items-center space-x-3 overflow-hidden h-10">
           <h1
-            className={`text-sm sm:text-xl font-bold truncate bg-clip-text text-transparent pl-1 transform block
+            className={`text-lg sm:text-2xl font-bold truncate bg-clip-text text-transparent pl-1 transform block
               bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400
               ${isTamilTitle ? 'font-tau-kabilar' : 'font-sans'}
               ${getTransformClass()}
@@ -229,6 +231,19 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
                 <UsersIcon className="h-4 w-4" />
                 <span>Profile</span>
               </button>
+
+              {user.role === 'admin' && (
+                <button
+                  onClick={() => {
+                    setIsTeacherRequestsModalOpen(true);
+                    setIsDropdownOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-3 transition-colors duration-150"
+                >
+                  <UsersIcon className="h-4 w-4" />
+                  <span>Teacher Requests</span>
+                </button>
+              )}
 
               <hr className="border-gray-200 dark:border-gray-600 my-1" />
               <button
@@ -324,6 +339,12 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
         isOpen={isResolutionModalOpen}
         onClose={() => setIsResolutionModalOpen(false)}
         onResolutionSelect={handleResolutionSelect}
+      />
+
+      {/* Teacher Requests Modal */}
+      <TeacherRequestsModal
+        isOpen={isTeacherRequestsModalOpen}
+        onClose={() => setIsTeacherRequestsModalOpen(false)}
       />
 
 

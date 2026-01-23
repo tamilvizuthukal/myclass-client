@@ -32,8 +32,8 @@ export const TeacherView: React.FC = () => {
     // Ensure resource type is selected if lesson is active (Fix 3)
     useEffect(() => {
         if (state.lessonId && !state.selectedResourceType) {
-            console.log('[TeacherView] Lesson selected but no resource type. Defaulting to book.');
-            updateTeacherState({ selectedResourceType: 'book' });
+            console.log('[TeacherView] Lesson selected but no resource type. Defaulting to slide.');
+            updateTeacherState({ selectedResourceType: 'slide' });
         }
     }, [state.lessonId, state.selectedResourceType, updateTeacherState]);
 
@@ -79,7 +79,7 @@ export const TeacherView: React.FC = () => {
 
     const handleLessonChange = useCallback((id: string | null) => {
         console.log('[TeacherView] Lesson changed:', { newLessonId: id, previousLessonId: state.lessonId });
-        updateStateAndResetScroll({ lessonId: id, selectedResourceType: id ? 'book' : null });
+        updateStateAndResetScroll({ lessonId: id, selectedResourceType: id ? 'slide' : null });
     }, [updateStateAndResetScroll, state.lessonId]);
 
     const handleSelectResourceType = useCallback((resourceType: ResourceType) => {

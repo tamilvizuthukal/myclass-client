@@ -96,19 +96,8 @@ const SavedBookViewer: React.FC<{ content: Content; onRemove: () => void; isAdmi
                 <button onClick={() => displayUrl && onExpand(displayUrl)} className={`${isMobile ? 'p-3' : 'p-2'} rounded-full bg-white/50 dark:bg-black/50 hover:bg-white/80 dark:hover:bg-black/80 backdrop-blur-sm shadow-md`} title="View Fullscreen">
                     <ExpandIcon className={`${isMobile ? 'w-6 h-6' : 'w-5 h-5'} text-gray-600 dark:text-gray-300`} />
                 </button>
-                {isAdmin && onTogglePublish && (
-                    <div className="" onClick={e => e.stopPropagation()}>
-                        <PublishToggle
-                            isPublished={!!content.isPublished}
-                            onToggle={onTogglePublish}
-                        />
-                    </div>
-                )}
-                {isAdmin && (
-                    <button onClick={onRemove} className={`${isMobile ? 'p-3' : 'p-2'} rounded-full bg-white/50 dark:bg-black/50 hover:bg-white/80 dark:hover:bg-black/80 backdrop-blur-sm shadow-md`} title="Remove Book">
-                        <TrashIcon className={`${isMobile ? 'w-6 h-6' : 'w-5 h-5'} text-gray-600 dark:text-gray-300`} />
-                    </button>
-                )}
+
+
             </div>
 
             {/* <h2 className="text-lg font-semibold mb-4 pr-24 shrink-0 text-gray-800 dark:text-white truncate" title={content.title}>{content.title}</h2> */}

@@ -29,7 +29,7 @@ const getBackTheme = () => {
     const bg = 'linear-gradient(135deg, #ffffff, #f5f5f5)'; // White to light gray gradient
     return {
         bg: bg,
-        textClass: 'text-gray-900', // Dark text for white background
+        textClass: '!text-black', // FORCE Pure black text
         borderClass: 'border-gray-800 dark:border-gray-700' // Dark border for light background
     };
 };
@@ -253,41 +253,30 @@ const Flashcard: React.FC<{
     onDelete: () => void;
     isAdmin: boolean;
     onTogglePublish?: () => void;
-}> = ({ card, frontTheme, backTheme, isCurrent, onEdit, onDelete, isAdmin, onTogglePublish }) => {
+    isLandscapeMobile?: boolean; // New prop for sizing
+}> = ({ card, frontTheme, backTheme, isCurrent, onEdit, onDelete, isAdmin, onTogglePublish, isLandscapeMobile }) => {
     const [isFlipped, setIsFlipped] = useState(false);
 
     useEffect(() => {
         setIsFlipped(false); // Reset flip state when card changes
     }, [card]);
 
-    const contentClass = "w-full max-h-full overflow-y-auto prose prose-2xl max-w-none text-center px-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent font-tau-marutham";
+    const contentClass = `w-full max-h-full overflow-y-auto ${isLandscapeMobile ? 'prose prose-base leading-snug pb-16' : 'prose prose-2xl'} max-w-none text-center px-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent font-tau-marutham`;
 
     return (
         <div className="w-full h-full [perspective:1500px]" onClick={() => setIsFlipped(!isFlipped)}>
             <div className={`relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped ? '[transform:rotateY(180deg)]' : ''} ease-in-out`}>
                 <div
-                    className={`absolute w-full h-full rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 [backface-visibility:hidden] ${frontTheme.textClass} ${frontTheme.borderClass} border-2 cursor-pointer`}
+                    className={`absolute w-full h-full rounded-2xl shadow-2xl flex flex-col items-center justify-center ${isLandscapeMobile ? 'p-4' : 'p-8'} [backface-visibility:hidden] ${frontTheme.textClass} ${frontTheme.borderClass} border-2 cursor-pointer`}
                     style={{ background: frontTheme.bg }}
                 >
                     <div className="text-5xl mb-6 opacity-80 shrink-0">❓</div>
                     <div className={contentClass} style={{ color: 'inherit' }} dangerouslySetInnerHTML={{ __html: processContentForHTML(card.title) }} />
                     <p className="absolute bottom-6 text-xs uppercase tracking-widest opacity-60 animate-pulse shrink-0">Tap to Flip</p>
-                    {isAdmin && isCurrent && (
-                        <div className="absolute top-4 right-4 flex gap-2 z-10" onClick={e => e.stopPropagation()}>
-                            {onTogglePublish && (
-                                <PublishToggle
-                                    isPublished={!!card.isPublished}
-                                    onToggle={onTogglePublish}
-                                />
-                            )}
-                            <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="p-2 rounded-full bg-white/30 hover:bg-white/50 backdrop-blur-md shadow-sm transition-all" title="Edit Card"><EditIcon className="w-5 h-5 text-current" /></button>
-                            <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 rounded-full bg-white/30 hover:bg-white/50 backdrop-blur-md shadow-sm transition-all" title="Delete Card"><TrashIcon className="w-5 h-5 text-current" /></button>
-                        </div>
-                    )}
                 </div>
 
                 <div
-                    className={`absolute w-full h-full rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8 [transform:rotateY(180deg)] [backface-visibility:hidden] ${backTheme.textClass} ${backTheme.borderClass} border-2 cursor-pointer`}
+                    className={`absolute w-full h-full rounded-2xl shadow-2xl flex flex-col items-center justify-center ${isLandscapeMobile ? 'p-4' : 'p-8'} [transform:rotateY(180deg)] [backface-visibility:hidden] ${backTheme.textClass} ${backTheme.borderClass} border-2 cursor-pointer`}
                     style={{ background: backTheme.bg }}
                 >
                     <div className="text-5xl mb-6 opacity-80 shrink-0">💡</div>
@@ -345,6 +334,42 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({ lessonId, user }) 
         };
         updateStats();
     }, [lessonId]);
+
+    // Responsive state for landscape optimization
+    const [isMobile, setIsMobile] = useState(false);
+    const [isLandscape, setIsLandscape] = useState(false);
+
+    useEffect(() => {
+        const checkResponsive = () => {
+            const mobile = window.innerWidth < 768;
+            setIsMobile(mobile);
+            setIsLandscape(window.innerWidth > window.innerHeight);
+        };
+
+        checkResponsive();
+        window.addEventListener('resize', checkResponsive);
+        window.addEventListener('orientationchange', checkResponsive);
+
+        return () => {
+            window.removeEventListener('resize', checkResponsive);
+            window.removeEventListener('orientationchange', checkResponsive);
+        };
+        return () => {
+            window.removeEventListener('resize', checkResponsive);
+            window.removeEventListener('orientationchange', checkResponsive);
+        };
+    }, []);
+
+    // Effect to hide global header in mobile landscape for fullscreen immersion
+    useEffect(() => {
+        const header = document.querySelector('header');
+        if (header) {
+            header.style.display = (isMobile && isLandscape) ? 'none' : 'flex';
+        }
+        return () => {
+            if (header) header.style.display = 'flex';
+        };
+    }, [isMobile, isLandscape]);
 
     const [currentCardIndex, setCurrentCardIndex] = useState(0);
 
@@ -528,18 +553,6 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({ lessonId, user }) 
                             <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-violet-600 dark:from-white dark:to-violet-400">Flashcards</h1>
                         </div>
                     </div>
-                    {canEdit && (
-                        <div className="flex gap-2">
-                            <button onClick={() => setEditorModalState({ isOpen: true, content: null })} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors" title="Add Card">
-                                <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                                <span className="hidden sm:inline">Add New</span>
-                            </button>
-                            <button onClick={() => setImportModalOpen(true)} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors" title="Import Cards">
-                                <ImportIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                                <span className="hidden sm:inline">Import</span>
-                            </button>
-                        </div>
-                    )}
                 </div>
                 <div className="flex-1 text-center py-20 bg-white dark:bg-gray-800/50 rounded-lg flex flex-col justify-center items-center shadow-inner">
                     <FlashcardIcon className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600" />
@@ -547,36 +560,27 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({ lessonId, user }) 
                 </div>
                 <FlashcardEditorModal isOpen={editorModalState.isOpen} onClose={() => setEditorModalState({ isOpen: false, content: null })} onSave={handleSave} cardToEdit={editorModalState.content} />
                 <ImportFlashcardsModal isOpen={importModalOpen} onClose={() => setImportModalOpen(false)} onImport={handleImport} />
-            </div>
+            </div >
         );
     }
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 flex flex-col h-full overflow-hidden">
-            <div className="flex justify-between items-center mb-8 shrink-0">
+        <div className={`${isMobile && isLandscape ? 'p-0 fixed inset-0 z-50 bg-gray-100 dark:bg-gray-900' : 'p-4 sm:p-6 lg:p-8'} flex flex-col h-full overflow-hidden`}>
+            {/* Header Title - Hidden in Landscape */}
+            <div className={`flex justify-between items-center ${isMobile && isLandscape ? 'hidden' : 'mb-8'} shrink-0`}>
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-3">
                         <FlashcardIcon className="w-8 h-8 text-violet-600" />
                         <h1 className="text-lg sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-violet-600 dark:from-white dark:to-violet-400">Flashcards</h1>
                     </div>
                 </div>
-                {canEdit && (
-                    <div className="flex gap-2">
-                        <button onClick={() => setEditorModalState({ isOpen: true, content: null })} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors" title="Add Card">
-                            <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                            <span className="hidden sm:inline">Add New</span>
-                        </button>
-                        <button onClick={() => setImportModalOpen(true)} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors" title="Import">
-                            <ImportIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                            <span className="hidden sm:inline">Import</span>
-                        </button>
-                    </div>
-                )}
             </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center relative min-h-0 w-full pb-4">
-                <div className="w-full max-w-3xl flex-1 mb-6 relative z-10">
-                    <div className={`absolute w-full h-full transition-all duration-500 ease-in-out`}>
+            <div className="flex-1 flex flex-col items-center justify-center relative min-h-0 w-full">
+
+                {/* Flashcard Area */}
+                <div className={`${isMobile && isLandscape ? 'w-full h-full p-4 pb-20' : 'w-full max-w-3xl flex-1 relative z-10 w-full mb-6'}`}>
+                    <div className={`relative w-full h-full transition-all duration-500 ease-in-out`}>
                         <Flashcard
                             card={currentCard}
                             frontTheme={frontTheme}
@@ -586,29 +590,31 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({ lessonId, user }) 
                             onDelete={() => handleDelete(currentCard._id)}
                             isAdmin={canEdit}
                             onTogglePublish={handleTogglePublish}
+                            isLandscapeMobile={isMobile && isLandscape}
                         />
                     </div>
                 </div>
 
-                <div className="w-full max-w-3xl flex flex-col items-center z-10">
-                    <div className="flex items-center justify-between w-full mb-3 px-2">
-                        <button onClick={handlePrev} disabled={currentCardIndex === 0} className="px-4 py-2 sm:px-6 rounded-full bg-white dark:bg-gray-800 shadow-md text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2">
-                            <ChevronLeftIcon className="w-5 h-5" />
-                            <span className="hidden sm:inline">Previous</span>
+                {/* Controls - Bottom Layer */}
+                <div className={`${isMobile && isLandscape ? 'absolute bottom-0 left-0 right-0 z-20 pb-2 px-12 bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-10' : 'w-full max-w-3xl flex flex-col items-center z-10 mb-4 shrink-0'}`}>
+                    <div className="flex items-center justify-between w-full mb-3">
+                        <button onClick={handlePrev} disabled={currentCardIndex === 0} className={`p-3 rounded-full shadow-md backdrop-blur-sm transition-colors flex items-center justify-center ${isMobile && isLandscape ? 'bg-white/20 text-white hover:bg-white/30 disabled:opacity-30 scale-75' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50'}`}>
+                            <ChevronLeftIcon className="w-6 h-6" />
                         </button>
-                        <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">{currentCardIndex + 1} / {flashcards.length}</span>
-                        <button onClick={handleNext} className="px-4 py-2 sm:px-6 rounded-full bg-blue-600 text-white shadow-md hover:bg-blue-700 transition-colors flex items-center gap-2">
-                            <span className="hidden sm:inline">{currentCardIndex === flashcards.length - 1 ? 'Finish' : 'Next'}</span>
-                            <ChevronRightIcon className="w-5 h-5" />
+                        <span className={`text-sm font-bold ${isMobile && isLandscape ? 'text-white text-shadow text-xs' : 'text-gray-500 dark:text-gray-400'}`}>{currentCardIndex + 1} / {flashcards.length}</span>
+                        <button onClick={handleNext} className={`p-3 rounded-full shadow-md backdrop-blur-sm transition-colors flex items-center justify-center ${isMobile && isLandscape ? 'bg-blue-600/80 text-white hover:bg-blue-600 border border-white/20 scale-75' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+                            <ChevronRightIcon className="w-6 h-6" />
                         </button>
                     </div>
-                    <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full cursor-pointer overflow-hidden" onClick={(e) => {
+
+                    {/* Progress Bar */}
+                    <div className="w-full h-2 bg-gray-200/30 dark:bg-gray-700/50 rounded-full cursor-pointer overflow-hidden backdrop-blur-sm" onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
                         const clickX = e.clientX - rect.left;
                         const newIndex = Math.floor((clickX / rect.width) * flashcards.length);
                         handleProgressClick(newIndex);
                     }}>
-                        <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${progressPercentage}%` }}></div>
+                        <div className="h-full bg-blue-500 transition-all duration-300 shadow-[0_0_10px_rgba(59,130,246,0.5)]" style={{ width: `${progressPercentage}%` }}></div>
                     </div>
                 </div>
 
@@ -618,6 +624,6 @@ export const FlashcardView: React.FC<FlashcardViewProps> = ({ lessonId, user }) 
             <FlashcardEditorModal isOpen={editorModalState.isOpen} onClose={() => setEditorModalState({ isOpen: false, content: null })} onSave={handleSave} cardToEdit={editorModalState.content} />
             <ConfirmModal isOpen={confirmModalState.isOpen} onClose={() => setConfirmModalState({ isOpen: false, onConfirm: null })} onConfirm={confirmModalState.onConfirm} title="Delete Flashcard" message="Are you sure you want to delete this flashcard?" />
             <ImportFlashcardsModal isOpen={importModalOpen} onClose={() => setImportModalOpen(false)} onImport={handleImport} />
-        </div>
+        </div >
     );
 };

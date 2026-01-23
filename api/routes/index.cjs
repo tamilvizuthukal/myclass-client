@@ -177,7 +177,8 @@ router.post('/auth/signup', async (req, res) => {
             schoolName,
             district,
             subDistrict,
-            role: role || 'student',
+            role: 'student', // ALWAYS create as student first, even if they requested teacher access
+            teacherRequestStatus: role === 'teacher' ? 'pending' : 'none',
             isFirstLogin: false, // Set to false since they just created their account/password
             status: 'active'
         });
@@ -955,6 +956,64 @@ router.post('/upload', (req, res, next) => {
         res.json(newContent);
     } catch (error) {
         console.error('Upload API Error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// --- 13. Teacher Access Requests ---
+
+// Request Teacher Access
+router.post('/users/:id/request-teacher', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        user.teacherRequestStatus = 'pending';
+        await user.save();
+
+        res.json({ success: true, message: 'Teacher access requested successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Get Pending Teacher Requests (Admin Only)
+router.get('/users/teacher-requests', async (req, res) => {
+    try {
+        const requests = await User.find({ teacherRequestStatus: 'pending' });
+        res.json(requests);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Approve Teacher Request
+router.put('/users/:id/approve-teacher', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        user.role = 'teacher';
+        user.teacherRequestStatus = 'approved';
+        await user.save();
+
+        res.json({ success: true, message: 'User approved as teacher' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Reject Teacher Request
+router.put('/users/:id/reject-teacher', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        user.teacherRequestStatus = 'rejected';
+        await user.save();
+
+        res.json({ success: true, message: 'Teacher request rejected' });
+    } catch (error) {
         res.status(500).json({ message: error.message });
     }
 });
