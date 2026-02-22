@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { CascadeSelectors } from './CascadeSelectors';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { MobileHome } from './MobileHome';
 import { ProfilePage } from './ProfilePage';
 import { ResourceType } from '../types';
 import { ContentDisplay } from './ContentDisplay';
@@ -28,14 +29,6 @@ export const TeacherView: React.FC = () => {
             selectedResourceType: state.selectedResourceType
         });
     }, [state]);
-
-    // Ensure resource type is selected if lesson is active (Fix 3)
-    useEffect(() => {
-        if (state.lessonId && !state.selectedResourceType) {
-            console.log('[TeacherView] Lesson selected but no resource type. Defaulting to slide.');
-            updateTeacherState({ selectedResourceType: 'slide' });
-        }
-    }, [state.lessonId, state.selectedResourceType, updateTeacherState]);
 
     // Check if device is mobile
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
@@ -79,8 +72,12 @@ export const TeacherView: React.FC = () => {
 
     const handleLessonChange = useCallback((id: string | null) => {
         console.log('[TeacherView] Lesson changed:', { newLessonId: id, previousLessonId: state.lessonId });
-        updateStateAndResetScroll({ lessonId: id, selectedResourceType: id ? 'slide' : null });
-    }, [updateStateAndResetScroll, state.lessonId]);
+        // On mobile, don't auto-select slide, let the user choose from grid
+        updateStateAndResetScroll({
+            lessonId: id,
+            selectedResourceType: id ? (isMobile ? null : 'slide') : null
+        });
+    }, [updateStateAndResetScroll, state.lessonId, isMobile]);
 
     const handleSelectResourceType = useCallback((resourceType: ResourceType) => {
         updateStateAndResetScroll({ selectedResourceType: resourceType });
@@ -94,20 +91,31 @@ export const TeacherView: React.FC = () => {
         setIsProfilePageOpen(!isProfilePageOpen);
     }, [isProfilePageOpen]);
 
+    const handleBackToGrid = useCallback(() => {
+        updateTeacherState({ selectedResourceType: null });
+    }, [updateTeacherState]);
+
     if (!user) {
         return null; // Safeguard
     }
 
     return (
         <div className="flex flex-col h-screen overflow-hidden">
-            <Header user={user} onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} onLogout={logout} onProfile={handleProfile} />
+            <Header
+                user={user}
+                onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                onLogout={logout}
+                onProfile={handleProfile}
+                onBack={isMobile && state.selectedResourceType ? handleBackToGrid : undefined}
+                isMobile={isMobile}
+            />
             <SelectionRestorationIndicator />
             <div className="flex flex-1 overflow-hidden">
                 <Sidebar
                     lessonId={state.lessonId}
                     selectedResourceType={state.selectedResourceType}
                     onSelectResourceType={handleSelectResourceType}
-                    isOpen={sidebarOpen}
+                    isOpen={isMobile ? false : sidebarOpen}
                     isMobile={isMobile}
                 />
                 <main
@@ -122,9 +130,13 @@ export const TeacherView: React.FC = () => {
                             />
                         </div>
                     ) : (
-                        <>
-                            <div className="shrink-0">
-                                <CascadeSelectors
+                        <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+
+
+                            {isMobile && !state.selectedResourceType ? (
+                                <MobileHome
+                                    onSelectResourceType={handleSelectResourceType}
+                                    currentResourceType={state.selectedResourceType}
                                     classId={state.classId}
                                     subjectId={state.subjectId}
                                     unitId={state.unitId}
@@ -135,18 +147,40 @@ export const TeacherView: React.FC = () => {
                                     onUnitChange={handleUnitChange}
                                     onSubUnitChange={handleSubUnitChange}
                                     onLessonChange={handleLessonChange}
-                                    onlyPublished={true}
-                                    lockedClassName={user?.role === 'student' ? user?.class : undefined}
+                                    userRole={user?.role}
+                                    userClass={user?.class}
+                                    userName={user?.name}
                                 />
-                            </div>
-                            <div className="flex-1 overflow-hidden">
-                                <ContentDisplay
-                                    lessonId={state.lessonId}
-                                    selectedResourceType={state.selectedResourceType}
-                                    user={user}
-                                />
-                            </div>
-                        </>
+                            ) : (
+                                <>
+                                    {!isMobile && (
+                                        <div className="shrink-0">
+                                            <CascadeSelectors
+                                                classId={state.classId}
+                                                subjectId={state.subjectId}
+                                                unitId={state.unitId}
+                                                subUnitId={state.subUnitId}
+                                                lessonId={state.lessonId}
+                                                onClassChange={handleClassChange}
+                                                onSubjectChange={handleSubjectChange}
+                                                onUnitChange={handleUnitChange}
+                                                onSubUnitChange={handleSubUnitChange}
+                                                onLessonChange={handleLessonChange}
+                                                onlyPublished={true}
+                                                lockedClassName={user?.role === 'student' ? user?.class : undefined}
+                                            />
+                                        </div>
+                                    )}
+                                    <div className="flex-1 overflow-hidden">
+                                        <ContentDisplay
+                                            lessonId={state.lessonId}
+                                            selectedResourceType={state.selectedResourceType}
+                                            user={user}
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     )}
                 </main>
             </div>
