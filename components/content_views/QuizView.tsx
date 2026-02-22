@@ -218,6 +218,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ lessonId, user }) => {
 
     const selectQuiz = (quiz: Content) => {
         setSelectedQuiz(quiz);
+        api.trackContentView(quiz._id).catch(() => { }); // Track individual quiz view
         setViewStats({ count: 0 }); // Reset view stats for the new quiz session
         if (quiz.body) {
             try {
@@ -227,7 +228,6 @@ export const QuizView: React.FC<QuizViewProps> = ({ lessonId, user }) => {
                 setCurrentQuestionIndex(0);
                 setViewMode('question');
             } catch (e) {
-                console.error("Failed to parse quiz JSON:", e);
                 setQuestions([]);
             }
         } else {

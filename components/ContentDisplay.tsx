@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { ResourceType, User } from '../types';
 import { useApi } from '../hooks/useApi';
-import { getHierarchy } from '../services/api';
+import { getHierarchy, trackView } from '../services/api';
 import { BookView } from './content_views/BookView';
 import { SlideView } from './content_views/SlideView';
 import { WorksheetView } from './content_views/WorksheetView';
@@ -30,9 +30,12 @@ const WelcomeMessage: React.FC<{ message: string; subMessage: string }> = ({ mes
 );
 
 export const ContentDisplay: React.FC<ContentDisplayProps> = ({ lessonId, selectedResourceType, user }) => {
-  // Debug logging to track prop changes
   useEffect(() => {
-    console.log('[ContentDisplay] Props changed:', { lessonId, selectedResourceType });
+    if (lessonId && selectedResourceType) {
+      trackView(lessonId, selectedResourceType).catch(() => {
+        // Silently ignore view tracking errors
+      });
+    }
   }, [lessonId, selectedResourceType]);
 
   const { data: hierarchy } = useApi(
@@ -78,19 +81,8 @@ export const ContentDisplay: React.FC<ContentDisplayProps> = ({ lessonId, select
     }
   }
 
-  const isDraft = hierarchy && hierarchy.isPublished === false;
-  const canSeeDraft = user.role === 'admin' || user.canEdit;
-
   return (
     <div className="h-full overflow-hidden flex flex-col">
-      {isDraft && canSeeDraft && (
-        <div className="bg-amber-100 dark:bg-amber-900/40 border-b border-amber-200 dark:border-amber-700/50 px-4 py-1.5 flex items-center justify-center shrink-0">
-          <span className="text-amber-800 dark:text-amber-200 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-            Draft Mode – Unpublished Content
-          </span>
-        </div>
-      )}
       <div className="flex-1 overflow-hidden relative">
         {renderContent()}
       </div>

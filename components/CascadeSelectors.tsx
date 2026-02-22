@@ -16,10 +16,8 @@ interface CascadeSelectorsProps {
   onSubUnitChange: (id: string | null) => void;
   onLessonChange: (id: string | null) => void;
   onModalToggle?: (isOpen: boolean) => void;
-  onlyPublished?: boolean;
   lockedClassName?: string;
 }
-
 
 export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
   classId,
@@ -33,36 +31,34 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
   onSubUnitChange,
   onLessonChange,
   onModalToggle,
-  onlyPublished = false,
   lockedClassName
 }) => {
-  const { data: classes, isLoading: isLoadingClasses } = useApi<Class[]>(() => getClasses(onlyPublished), [onlyPublished]);
+  const { data: classes, isLoading: isLoadingClasses } = useApi<Class[]>(() => getClasses(), []);
   const { data: subjects, isLoading: isLoadingSubjects } = useApi<Subject[]>(
-    () => getSubjectsByClassId(classId!, onlyPublished),
-    [classId, onlyPublished],
+    () => getSubjectsByClassId(classId!),
+    [classId],
     !!classId,
     { keepPreviousData: false }
   );
   const { data: units, isLoading: isLoadingUnits } = useApi<Unit[]>(
-    () => getUnitsBySubjectId(subjectId!, onlyPublished),
-    [subjectId, onlyPublished],
+    () => getUnitsBySubjectId(subjectId!),
+    [subjectId],
     !!subjectId,
     { keepPreviousData: false }
   );
   const { data: subUnits, isLoading: isLoadingSubUnits } = useApi<SubUnit[]>(
-    () => getSubUnitsByUnitId(unitId!, onlyPublished),
-    [unitId, onlyPublished],
+    () => getSubUnitsByUnitId(unitId!),
+    [unitId],
     !!unitId,
     { keepPreviousData: false }
   );
   const { data: lessons, isLoading: isLoadingLessons } = useApi<Lesson[]>(
-    () => getLessonsBySubUnitId(subUnitId!, onlyPublished),
-    [subUnitId, onlyPublished],
+    () => getLessonsBySubUnitId(subUnitId!),
+    [subUnitId],
     !!subUnitId,
     { keepPreviousData: false }
   );
 
-  // Effect: Enforce locked class based on profile
   useEffect(() => {
     if (lockedClassName && classes && classes.length > 0) {
       const normalizedLocked = lockedClassName.toLowerCase().trim();
@@ -73,67 +69,42 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
           normalizedName.replace('class ', '').trim() === normalizedLocked;
       });
 
-      if (lockedClass) {
-        if (classId !== lockedClass._id) {
-          console.log('[CascadeSelectors] Enforcing locked class:', {
-            lockedName: lockedClassName,
-            matchedName: lockedClass.name,
-            id: lockedClass._id
-          });
-          onClassChange(lockedClass._id);
-        }
-      } else {
-        console.warn('[CascadeSelectors] Locked class name not found in available classes:', lockedClassName);
+      if (lockedClass && classId !== lockedClass._id) {
+        onClassChange(lockedClass._id);
       }
     }
   }, [lockedClassName, classes, classId, onClassChange]);
 
-  // --- Auto-Selection Logic REMOVED for Strict Cascading ---
-  // The user must manually select each step to ensure valid state.
-
-  // Effect: If a Unit is selected, and we have determined it has NO Sub-Units, treat the Unit as the "Lesson" (Leaf Node)
   useEffect(() => {
-    // Only auto-select if we have loaded subunits and confirmed count is 0
     if (unitId && !isLoadingSubUnits && subUnits && subUnits.length === 0) {
       if (lessonId !== unitId) {
-        console.log('[CascadeSelectors] Unit as lesson (Leaf Node) - setting lessonId to unitId:', { unitId });
         onLessonChange(unitId);
       }
     }
   }, [unitId, subUnits, isLoadingSubUnits, lessonId, onLessonChange]);
 
-  // Effect: If a Sub-Unit is selected, and we have determined it has NO Lessons (Chapters), treat the Sub-Unit as the "Lesson" (Leaf Node)
   useEffect(() => {
-    // Only auto-select if we have loaded lessons and confirmed count is 0
     if (subUnitId && !isLoadingLessons && lessons && lessons.length === 0) {
       if (lessonId !== subUnitId) {
-        console.log('[CascadeSelectors] SubUnit as lesson (Leaf Node) - setting lessonId to subUnitId:', { subUnitId });
         onLessonChange(subUnitId);
       }
     }
   }, [subUnitId, lessons, isLoadingLessons, lessonId, onLessonChange]);
 
-  // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Check if any selection is made
-  const hasSelections = classId || subjectId || unitId || subUnitId || lessonId;
-
-  // Get current class display name
   const getCurrentClassDisplay = () => {
     if (!classId || !classes) return null;
     const selectedClass = classes.find(c => c._id === classId);
     return selectedClass?.name || null;
   };
 
-  // Get current subject display name
   const getCurrentSubjectDisplay = () => {
     if (!subjectId || !subjects) return null;
     const selectedSubject = subjects.find(s => s._id === subjectId);
     return selectedSubject?.name || null;
   };
 
-  // Get the final selected item (lesson/sub-unit/unit/subject)
   const getFinalSelectedDisplay = () => {
     if (lessonId && lessons) {
       const selectedLesson = lessons.find(l => l._id === lessonId);
@@ -154,7 +125,6 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
     return null;
   };
 
-  // Build display text for mobile button
   const getMobileDisplayText = () => {
     const className = getCurrentClassDisplay();
     const subjectName = getCurrentSubjectDisplay();
@@ -165,17 +135,12 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
     }
 
     const parts = [];
-    if (className) {
-      // Abbreviate class name if too long
-      parts.push(className.length > 15 ? className.substring(0, 12) + '...' : className);
-    }
+    if (className) parts.push(className.length > 15 ? className.substring(0, 12) + '...' : className);
     if (subjectName) {
-      // Abbreviate subject name if too long
       const maxLength = parts.length === 0 ? 20 : 15;
       parts.push(subjectName.length > maxLength ? subjectName.substring(0, maxLength - 3) + '...' : subjectName);
     }
     if (finalSelection) {
-      // Always abbreviate final selection as it's usually the longest
       const maxLength = parts.length === 0 ? 25 : (parts.length === 1 ? 18 : 12);
       parts.push(finalSelection.length > maxLength ? finalSelection.substring(0, maxLength - 3) + '...' : finalSelection);
     }
@@ -183,20 +148,14 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
     return parts.join(' › ');
   };
 
-  // Ref to track if we've already performed the initial auto-open check
   const initialAutoOpenDone = useRef(false);
 
-  // Auto-show modal when Class or Subject is not selected (only once on load)
   useEffect(() => {
-    // Only proceed if we haven't checked yet and classes are loaded
     if (!initialAutoOpenDone.current && classes && classes.length > 0) {
       if (!classId || !subjectId) {
-        // Show modal when page loads and no Class/Subject is selected
-        console.log('[CascadeSelectors] Auto-opening modal due to missing selection:', { classId, subjectId });
         setIsModalOpen(true);
         onModalToggle?.(true);
       }
-      // Mark as done so we don't annoy the user later
       initialAutoOpenDone.current = true;
     }
   }, [classId, subjectId, classes, onModalToggle]);
@@ -212,14 +171,12 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
   };
 
   const handleSave = () => {
-    // Selection is automatically handled through the onChange handlers
     setIsModalOpen(false);
     onModalToggle?.(false);
   };
 
   return (
     <>
-      {/* Hidden on mobile - selections are handled through modal */}
       <div className="hidden md:block p-4 bg-white dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 shrink-0">
         <div className="flex flex-wrap gap-3 lg:gap-4 overflow-hidden">
           <Selector
@@ -228,7 +185,7 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
             onChange={(e) => onClassChange(e.target.value || null)}
             options={classes}
             isLoading={isLoadingClasses}
-            disabled={!!lockedClassName} // Disable if locked
+            disabled={!!lockedClassName}
           />
           {classId && (
             <Selector
@@ -277,7 +234,6 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
         </div>
       </div>
 
-      {/* Mobile - Show trigger button */}
       <div className="md:hidden shrink-0">
         <button
           onClick={handleModalOpen}
@@ -288,15 +244,9 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
               {getMobileDisplayText()}
             </p>
           </div>
-
           <div className="flex-shrink-0 px-3 py-2">
             <div className="p-1.5 rounded-md bg-gray-100 dark:bg-gray-700">
-              <svg
-                className="h-4 w-4 text-gray-600 dark:text-gray-300"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="h-4 w-4 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </div>
@@ -304,7 +254,6 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
         </button>
       </div>
 
-      {/* Selection Modal */}
       <SelectionModal
         isOpen={isModalOpen}
         onClose={handleModalClose}
@@ -320,14 +269,12 @@ export const CascadeSelectors: React.FC<CascadeSelectorsProps> = ({
         onLessonChange={onLessonChange}
         onSave={handleSave}
         defaultClass="8"
-        onlyPublished={onlyPublished}
         lockedClassName={lockedClassName}
       />
     </>
   );
 };
 
-// Desktop-only selector component
 const Selector: React.FC<{
   label: string;
   value: string | null;
@@ -343,7 +290,6 @@ const Selector: React.FC<{
       onChange={onChange}
       disabled={disabled || isLoading}
       className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed truncate"
-      style={{ textOverflow: 'ellipsis' }}
     >
       <option value="" disabled>{isLoading ? 'Loading...' : `Select ${label}`}</option>
       {options?.map(opt => (

@@ -1,4 +1,4 @@
-// api/index.js - Trigger restart 10
+// api/index.js
 import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
@@ -6,10 +6,6 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-
-// If your routes are ESM: import normally.
-// If your routes are CommonJS (use require), either convert them or rename to .cjs and import dynamically.
-// Try ESM import first:
 import apiRoutes from './routes/index.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,13 +22,13 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Serve uploaded files (adjust path if your uploads folder location differs)
+// Serve uploaded files
 const uploadsPath = path.join(__dirname, '../uploads');
 if (fs.existsSync(uploadsPath)) {
     app.use('/uploads', express.static(uploadsPath));
 }
 
-// Database connection cache (to avoid reconnects on serverless cold starts)
+// Database connection cache
 let dbConnected = false;
 
 const connectToDatabase = async () => {
@@ -43,25 +39,17 @@ const connectToDatabase = async () => {
     }
 
     try {
-        // Provide options for mongoose; adapt if using newer driver settings
-        await mongoose.connect(uri, {
-            // recommended options (Mongoose 6+ doesn't require useNewUrlParser/UnifiedTopology but leaving safe)
-            // useNewUrlParser: true,
-            // useUnifiedTopology: true,
-            // serverSelectionTimeoutMS: 5000,
-        });
+        await mongoose.connect(uri);
         dbConnected = true;
-        console.log('✓ MongoDB Connected Successfully');
     } catch (error) {
-        console.error('✗ MongoDB Connection Error:', error && (error.stack || error));
         throw error;
     }
 };
 
-// Mount routes (ensure apiRoutes is ESM default or change accordingly)
+// Mount routes
 app.use('/api', apiRoutes);
 
-// Health check (relative route)
+// Health check
 app.get('/health', async (req, res) => {
     try {
         await connectToDatabase();
@@ -95,33 +83,23 @@ export const startServer = async () => {
     try {
         const PORT = process.env.PORT || 5002;
         const server = app.listen(PORT, () => {
-            console.log(`✓ API Server running on port ${PORT}`);
-            console.log(`✓ Health check available at http://localhost:${PORT}/health`);
-            console.log(`✓ API endpoints available at http://localhost:${PORT}/api`);
-
-            // Attempt to connect to DB in background, don't block server startup
+            // Attempt to connect to DB in background
             connectToDatabase().catch(error => {
-                console.error('✗ Initial MongoDB connection failed:', error.message);
-                console.log('ℹ Server is running. Database connection will be retried on next request.');
+                // Silently fail, it will retry on request
             });
         });
-
-        // Increase timeout to 5 minutes for large uploads
         server.setTimeout(5 * 60 * 1000);
     } catch (error) {
-        console.error('Failed to start server:', error && (error.stack || error));
         process.exit(1);
     }
 };
 
-// Serverless handler used by Vercel (default export)
+// Serverless handler used by Vercel
 const serverlessHandler = async (req, res) => {
     try {
         await connectToDatabase();
-        // Let express handle the request/response
         app(req, res);
     } catch (error) {
-        console.error('Serverless handler error:', error && (error.stack || error));
         res.status(500).json({
             error: 'Database connection failed',
             message: error ? (error.message || String(error)) : 'unknown'
@@ -129,14 +107,10 @@ const serverlessHandler = async (req, res) => {
     }
 };
 
-// If run directly via `node api/index.js`, start the local server
 const currentFile = fileURLToPath(import.meta.url);
 if (process.argv[1] === currentFile) {
-    // invoked directly
     startServer();
 }
 
-// Export default for Vercel serverless usage
 export default serverlessHandler;
 export { app, serverlessHandler };
-// Trigger restart 14

@@ -119,7 +119,6 @@ export const Signup: React.FC<SignupProps> = ({ onLoginClick }) => {
 
             login(sessionData);
         } catch (err: any) {
-            console.error("Signup Error:", err);
             let errorMessage = 'An unknown error occurred.';
 
             if (err instanceof Error) {

@@ -53,7 +53,6 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
     return (
         <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-y-auto animate-fade-in-up pb-10">
             <div className="p-5 pt-8">
-                {/* First Div: Welcome Info (Right Side) */}
                 {userName && (
                     <div className="flex justify-end mb-8 animate-fade-in">
                         <div className="text-right flex flex-col items-end shrink-0 px-4 py-2 rounded-2xl border-r-4 border-blue-500 bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800">
@@ -65,7 +64,6 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                     </div>
                 )}
 
-                {/* Second Div: முகப்பு & Content */}
                 <div className="space-y-8">
                     <div>
                         <h1 className="text-4xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight font-tau-marutham">
@@ -76,7 +74,6 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                         </p>
                     </div>
 
-                    {/* Selection Section moved to Home Page */}
                     <div className="bg-white dark:bg-gray-900 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
                         <CascadeSelectors
                             classId={classId}
@@ -89,12 +86,10 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                             onUnitChange={onUnitChange}
                             onSubUnitChange={onSubUnitChange}
                             onLessonChange={onLessonChange}
-                            onlyPublished={true}
                             lockedClassName={userRole === 'student' ? userClass : undefined}
                         />
                     </div>
 
-                    {/* Grid menu appears only after full selection */}
                     {hasLesson ? (
                         <div className="animate-grid-entrance">
                             <div className="mb-4">
@@ -123,7 +118,6 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                                         >
                                             <div className={`absolute -right-4 -top-4 w-20 h-20 rounded-full blur-2xl opacity-20 bg-gradient-to-br ${resource.gradient}`} />
 
-                                            {/* Count Badge */}
                                             {counts && (counts[resource.key as keyof ResourceCounts] || 0) > 0 && (
                                                 <div className="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-fade-in">
                                                     {counts[resource.key as keyof ResourceCounts]}
@@ -161,7 +155,6 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                         </div>
                     )}
 
-                    {/* Footer Section */}
                     <div className="mt-12 pt-8 border-t border-gray-100 dark:border-gray-800/50 text-center">
                         <p className="text-[13px] text-gray-500 dark:text-gray-400 font-tau-paalai leading-relaxed max-w-xs mx-auto italic">
                             தமிழ்விருதுகள் என்பது தமிழ் வழி மாணவர்களுக்கான ஒரு நவீன மின்-கற்றல் தளம்.

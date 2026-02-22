@@ -1,13 +1,12 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { CascadeSelectors } from './CascadeSelectors';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileHome } from './MobileHome';
 import { ProfilePage } from './ProfilePage';
-import { ResourceType } from '../types';
+import { ResourceType, TeacherState } from '../types';
 import { ContentDisplay } from './ContentDisplay';
 import { useSession } from '../context/SessionContext';
-import { TeacherState } from '../types';
 import { useScrollPersistence } from '../hooks/useScrollPersistence';
 import { SelectionRestorationIndicator } from './SelectionRestorationIndicator';
 
@@ -18,18 +17,6 @@ export const TeacherView: React.FC = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isProfilePageOpen, setIsProfilePageOpen] = useState(false);
 
-    // Debug logging for navigation state
-    useEffect(() => {
-        console.log('[TeacherView] Navigation state changed:', {
-            classId: state.classId,
-            subjectId: state.subjectId,
-            unitId: state.unitId,
-            subUnitId: state.subUnitId,
-            lessonId: state.lessonId,
-            selectedResourceType: state.selectedResourceType
-        });
-    }, [state]);
-
     // Check if device is mobile
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
@@ -37,7 +24,6 @@ export const TeacherView: React.FC = () => {
         const handleResize = () => {
             setIsMobile(window.innerWidth < 768);
         };
-
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
@@ -71,17 +57,14 @@ export const TeacherView: React.FC = () => {
     }, [updateStateAndResetScroll]);
 
     const handleLessonChange = useCallback((id: string | null) => {
-        console.log('[TeacherView] Lesson changed:', { newLessonId: id, previousLessonId: state.lessonId });
-        // On mobile, don't auto-select slide, let the user choose from grid
         updateStateAndResetScroll({
             lessonId: id,
             selectedResourceType: id ? (isMobile ? null : 'slide') : null
         });
-    }, [updateStateAndResetScroll, state.lessonId, isMobile]);
+    }, [updateStateAndResetScroll, isMobile]);
 
     const handleSelectResourceType = useCallback((resourceType: ResourceType) => {
         updateStateAndResetScroll({ selectedResourceType: resourceType });
-        // Auto-hide sidebar on mobile when menu item is selected
         if (isMobile) {
             setSidebarOpen(false);
         }
@@ -131,8 +114,6 @@ export const TeacherView: React.FC = () => {
                         </div>
                     ) : (
                         <div className="flex flex-col h-full bg-white dark:bg-gray-900">
-
-
                             {isMobile && !state.selectedResourceType ? (
                                 <MobileHome
                                     onSelectResourceType={handleSelectResourceType}
@@ -166,7 +147,6 @@ export const TeacherView: React.FC = () => {
                                                 onUnitChange={handleUnitChange}
                                                 onSubUnitChange={handleSubUnitChange}
                                                 onLessonChange={handleLessonChange}
-                                                onlyPublished={true}
                                                 lockedClassName={user?.role === 'student' ? user?.class : undefined}
                                             />
                                         </div>

@@ -1,10 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from '../types';
-import { FullScreenIcon, ExitFullScreenIcon, LogoutIcon, SettingsIcon, UsersIcon } from './icons/AdminIcons';
-import { SelectionModal } from './SelectionModal';
-import { ResolutionModal } from './ResolutionModal';
-import { TeacherRequestsModal } from './TeacherRequestsModal';
-
+import { FullScreenIcon, ExitFullScreenIcon, LogoutIcon, UsersIcon } from './icons/AdminIcons';
 
 interface HeaderProps {
   user: User;
@@ -29,19 +25,7 @@ const MoonIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg className={className} stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
 );
 
-const ProfileIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-);
-
-const LockClosedIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-);
-
-const ChevronDownIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><polyline points="6,9 12,15 18,9"></polyline></svg>
-);
-
-export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout, selectedClass, onClassSelect, onProfile, onBack, isMobile }) => {
+export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout, selectedClass, onProfile, onBack, isMobile }) => {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -51,16 +35,6 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
     return false;
   });
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
-  const [isResolutionModalOpen, setIsResolutionModalOpen] = useState(false);
-  const [isTeacherRequestsModalOpen, setIsTeacherRequestsModalOpen] = useState(false);
-  const [currentClass, setCurrentClass] = useState(selectedClass || '8');
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
-  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
-  const [selectedSubUnitId, setSelectedSubUnitId] = useState<string | null>(null);
-  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
-
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
@@ -69,28 +43,17 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
       e.preventDefault();
       setDeferredPrompt(e);
     };
-
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
+    await deferredPrompt.userChoice;
     setDeferredPrompt(null);
     setIsDropdownOpen(false);
   };
-
-  // Update current class when selectedClass prop changes
-  useEffect(() => {
-    if (selectedClass) {
-      setCurrentClass(selectedClass);
-    }
-  }, [selectedClass]);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -108,17 +71,10 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
 
   const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(console.error);
+      document.documentElement.requestFullscreen().catch(() => { });
     } else {
       document.exitFullscreen?.();
     }
-  };
-
-  const handleResolutionSelect = (resolution: string) => {
-    // Apply resolution changes based on selection
-    console.log('Selected resolution:', resolution);
-    // Here you can add logic to actually change the page resolution
-    // For now, we'll just log it
   };
 
   useEffect(() => {
@@ -135,46 +91,35 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
         setIsDropdownOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-
   const [isTamilTitle, setIsTamilTitle] = useState(true);
   const [animState, setAnimState] = useState<'visible' | 'out' | 'in-start'>('visible');
 
-  // Scroll roll-over animation
   useEffect(() => {
-    const cycleTime = 10000; // 1000ms pause + 500ms animation
+    const cycleTime = 10000;
     const interval = setInterval(() => {
-      // 1. Animate Out (Slide Up)
       setAnimState('out');
-
-      // 2. Swap Text & Reset to Bottom (Hidden)
       setTimeout(() => {
         setIsTamilTitle(prev => !prev);
         setAnimState('in-start');
-
-        // 3. Animate In (Slide Up to Center)
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             setAnimState('visible');
           });
         });
-      }, 500); // Wait for exit animation to finish
-
+      }, 500);
     }, cycleTime);
-
     return () => clearInterval(interval);
   }, []);
 
-  // Determine classes based on animation state
   const getTransformClass = () => {
     switch (animState) {
       case 'visible': return 'translate-y-0 opacity-100 transition-all duration-500 ease-out';
       case 'out': return '-translate-y-8 opacity-0 transition-all duration-500 ease-in';
-      case 'in-start': return 'translate-y-8 opacity-0 transition-none duration-0'; // Instant jump to bottom
+      case 'in-start': return 'translate-y-8 opacity-0 transition-none duration-0';
       default: return 'translate-y-0 opacity-100';
     }
   };
@@ -183,15 +128,11 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
     <header className="flex items-center justify-between px-2 sm:px-4 h-12 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 z-30 shrink-0">
       <div className="flex items-center space-x-2 sm:space-x-4">
         {onBack ? (
-          /* Premium Animated Back Button */
           <button
             onClick={onBack}
             className="group relative h-8 p-[2px] rounded-xl overflow-hidden transition-all active:scale-95 flex items-center justify-center shrink-0 ml-1 shadow-md"
           >
-            {/* The rotating gradient border */}
             <div className="absolute inset-[-500%] bg-[conic-gradient(from_0deg,#3b82f6_0%,#8b5cf6_25%,#ec4899_50%,#8b5cf6_75%,#3b82f6_100%)] animate-[spin_4s_linear_infinite]" />
-
-            {/* Inner content with background to create the border effect */}
             <div className="relative flex items-center justify-center gap-1.5 px-3 bg-white dark:bg-gray-900 rounded-[10px] h-full w-full">
               <svg className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" d="M15 19l-7-7 7-7" />
@@ -200,7 +141,6 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
             </div>
           </button>
         ) : (
-          /* Menu toggle - hidden on mobile as per user request to hide sidebar */
           <button
             onClick={onToggleSidebar}
             className={`${isMobile ? 'hidden' : 'block'} p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500`}
@@ -223,7 +163,6 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
         </div>
       </div>
       <div className="flex items-center space-x-1 sm:space-x-2">
-        {/* Fullscreen button - Desktop only - Hidden on mobile */}
         <button
           onClick={toggleFullScreen}
           className="hidden md:flex w-8 h-8 sm:w-7 sm:h-7 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-150 items-center justify-center overflow-hidden"
@@ -236,11 +175,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
           )}
         </button>
 
-        {/* User dropdown container */}
         <div className="relative" ref={dropdownRef}>
-
-
-          {/* Dropdown menu - positioned to align with user avatar */}
           {isDropdownOpen && (
             <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-50 border border-gray-200 dark:border-gray-700 transform origin-top-right">
               <button
@@ -253,19 +188,6 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
                 <UsersIcon className="h-4 w-4" />
                 <span>Profile</span>
               </button>
-
-              {user.role === 'admin' && (
-                <button
-                  onClick={() => {
-                    setIsTeacherRequestsModalOpen(true);
-                    setIsDropdownOpen(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-3 transition-colors duration-150"
-                >
-                  <UsersIcon className="h-4 w-4" />
-                  <span>Teacher Requests</span>
-                </button>
-              )}
 
               <hr className="border-gray-200 dark:border-gray-600 my-1" />
               <button
@@ -312,7 +234,6 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
             </div>
           )}
 
-          {/* User avatar button with dropdown arrow */}
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className="w-8 h-8 sm:w-7 sm:h-7 bg-blue-500 rounded-full user-avatar text-white font-semibold hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-150 mobile-user-icon flex items-center justify-center overflow-hidden"
@@ -325,51 +246,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
             </span>
           </button>
         </div>
-
-
       </div>
-
-      {/* Selection Modal - Mobile Only */}
-      <SelectionModal
-        isOpen={isSelectionModalOpen}
-        onClose={() => setIsSelectionModalOpen(false)}
-        classId={selectedClassId}
-        subjectId={selectedSubjectId}
-        unitId={selectedUnitId}
-        subUnitId={selectedSubUnitId}
-        lessonId={selectedLessonId}
-        onClassChange={setSelectedClassId}
-        onSubjectChange={setSelectedSubjectId}
-        onUnitChange={setSelectedUnitId}
-        onSubUnitChange={setSelectedSubUnitId}
-        onLessonChange={setSelectedLessonId}
-        onSave={() => {
-          // Update current class display if a class was selected
-          if (selectedClassId) {
-            // Try to extract class number from class ID or use current class
-            setCurrentClass(selectedClass || '8');
-          }
-          // Call the original onClassSelect if provided
-          if (onClassSelect) {
-            onClassSelect();
-          }
-        }}
-        defaultClass="8"
-      />
-      {/* Resolution Modal */}
-      <ResolutionModal
-        isOpen={isResolutionModalOpen}
-        onClose={() => setIsResolutionModalOpen(false)}
-        onResolutionSelect={handleResolutionSelect}
-      />
-
-      {/* Teacher Requests Modal */}
-      <TeacherRequestsModal
-        isOpen={isTeacherRequestsModalOpen}
-        onClose={() => setIsTeacherRequestsModalOpen(false)}
-      />
-
-
     </header>
   );
 };

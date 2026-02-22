@@ -1,4 +1,4 @@
-import { Class, Subject, Unit, SubUnit, Lesson, Content, ResourceType, GroupedContent, ResourceCounts, User } from '../types';
+import { Class, Subject, Unit, SubUnit, Lesson, ResourceType, GroupedContent, ResourceCounts, User } from '../types';
 
 const API_BASE = ((import.meta as any).env && (import.meta as any).env.VITE_API_URL ? (import.meta as any).env.VITE_API_URL : '') + '/api';
 
@@ -13,21 +13,11 @@ const apiRequest = async <T>(endpoint: string, options?: RequestInit): Promise<T
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        if (response.status === 404) {
-            console.warn(`[API] Resource not found: ${endpoint}`);
-        } else {
-            console.error(`[API Error] ${endpoint}:`, response.status, response.statusText, errorData);
-        }
         throw new Error(errorData.message || `API Error: ${response.status} ${response.statusText}`);
     }
 
     return response.json();
 };
-
-// ============================================================================
-// USER-FACING API FUNCTIONS ONLY
-// Admin functions removed to match consolidated backend
-// ============================================================================
 
 // --- Auth ---
 export const loginUser = (username: string, password: string): Promise<{ user: User, token: string }> =>
@@ -36,7 +26,7 @@ export const loginUser = (username: string, password: string): Promise<{ user: U
 export const signupUser = (data: { username: string; password: string; name: string; email: string; mobileNumber?: string; role?: string; class?: string; schoolName?: string; district?: string; subDistrict?: string }): Promise<{ user: User, token: string }> =>
     apiRequest('/auth/signup', { method: 'POST', body: JSON.stringify(data) });
 
-// --- Hierarchy (Read-Only, Published Content Only by default) ---
+// --- Hierarchy ---
 const buildQuery = (params: Record<string, string | boolean | undefined>) => {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -48,24 +38,21 @@ const buildQuery = (params: Record<string, string | boolean | undefined>) => {
     return queryString ? `?${queryString}` : '';
 };
 
-export const getClasses = async (onlyPublished: boolean = true): Promise<Class[]> => {
-    console.log('[API] getClasses called', { onlyPublished });
-    const result = await apiRequest<Class[]>(`/classes${!onlyPublished ? '?includeUnpublished=true' : ''}`);
-    console.log('[API] getClasses result:', result?.length || 0, 'classes');
-    return result;
+export const getClasses = async (): Promise<Class[]> => {
+    return apiRequest<Class[]>('/classes');
 };
 
-export const getSubjectsByClassId = (classId: string, onlyPublished: boolean = true): Promise<Subject[]> =>
-    apiRequest(`/subjects${buildQuery({ classId, includeUnpublished: !onlyPublished ? 'true' : undefined })}`);
+export const getSubjectsByClassId = (classId: string): Promise<Subject[]> =>
+    apiRequest(`/subjects${buildQuery({ classId })}`);
 
-export const getUnitsBySubjectId = (subjectId: string, onlyPublished: boolean = true): Promise<Unit[]> =>
-    apiRequest(`/units${buildQuery({ subjectId, includeUnpublished: !onlyPublished ? 'true' : undefined })}`);
+export const getUnitsBySubjectId = (subjectId: string): Promise<Unit[]> =>
+    apiRequest(`/units${buildQuery({ subjectId })}`);
 
-export const getSubUnitsByUnitId = (unitId: string, onlyPublished: boolean = true): Promise<SubUnit[]> =>
-    apiRequest(`/subUnits${buildQuery({ unitId, includeUnpublished: !onlyPublished ? 'true' : undefined })}`);
+export const getSubUnitsByUnitId = (unitId: string): Promise<SubUnit[]> =>
+    apiRequest(`/subUnits${buildQuery({ unitId })}`);
 
-export const getLessonsBySubUnitId = (subUnitId: string, onlyPublished: boolean = true): Promise<Lesson[]> =>
-    apiRequest(`/lessons${buildQuery({ subUnitId, includeUnpublished: !onlyPublished ? 'true' : undefined })}`);
+export const getLessonsBySubUnitId = (subUnitId: string): Promise<Lesson[]> =>
+    apiRequest(`/lessons${buildQuery({ subUnitId })}`);
 
 export const getHierarchy = (lessonId: string): Promise<{
     className: string;
@@ -77,20 +64,19 @@ export const getHierarchy = (lessonId: string): Promise<{
     qaDownloadCount?: number;
 }> => apiRequest(`/hierarchy/${lessonId}`);
 
-// --- Content (Read-Only, Published Content Only by default) ---
-export const getContentsByLessonId = (lessonId: string, types?: ResourceType[], onlyPublished: boolean = true): Promise<GroupedContent[]> => {
-    const params: Record<string, string> = { lessonId };
-    if (!onlyPublished) params.includeUnpublished = 'true';
+// --- Content ---
+export const getContentsByLessonId = (lessonId: string, types?: ResourceType[], publishedOnly?: boolean): Promise<GroupedContent[]> => {
+    const params: Record<string, string | boolean> = { lessonId };
     if (types && types.length > 0) params.type = types[0];
-
-    let url = `/content${buildQuery(params)}`;
-    console.log('[API] getContentsByLessonId called:', { lessonId, types, url });
-
-    return apiRequest(url);
+    if (publishedOnly !== undefined) params.publishedOnly = publishedOnly;
+    return apiRequest(`/content${buildQuery(params)}`);
 };
 
+export const downloadContent = (id: string, userId: string, email: string): Promise<{ success: boolean; message: string; fileUrl?: string; isAdmin?: boolean; emailSent?: boolean; adminPhone?: string }> =>
+    apiRequest(`/content/${id}/download`, { method: 'POST', body: JSON.stringify({ userId, email }) });
+
 export const getCountsByLessonId = async (lessonId: string): Promise<ResourceCounts> => {
-    const grouped: GroupedContent[] = await getContentsByLessonId(lessonId, undefined, true); // counts usually for display, so published only
+    const grouped: GroupedContent[] = await getContentsByLessonId(lessonId);
     const counts: ResourceCounts = {};
     grouped.forEach(g => {
         counts[g.type] = g.count;
@@ -98,31 +84,7 @@ export const getCountsByLessonId = async (lessonId: string): Promise<ResourceCou
     return counts;
 };
 
-// --- Content Management (CRUD) ---
-export const addContent = (data: Partial<Content>): Promise<Content> =>
-    apiRequest('/content', { method: 'POST', body: JSON.stringify(data) });
-
-export const addMultipleContent = async (contents: Partial<Content>[]): Promise<Content[]> => {
-    return Promise.all(contents.map(content => addContent(content)));
-};
-
-export const updateContent = (id: string, data: Partial<Content>): Promise<Content> =>
-    apiRequest(`/content/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-
-export const deleteContent = (id: string): Promise<{ success: boolean }> =>
-    apiRequest(`/content/${id}`, { method: 'DELETE' });
-
-
-
-export const downloadContent = (id: string, resourceType?: string, lessonId?: string): Promise<{ success: boolean; fileUrl?: string; message?: string }> => {
-    // This typically triggers a direct download or returns a signed URL
-    // For now returning void as per current usage patterns implying visual handling
-    // Mock response to satisfy TS
-    return Promise.resolve({ success: false, message: 'Download function not fully implemented.' });
-};
-
-
-// --- User Profile Management ---
+// --- Profile & Access ---
 export const getUserProfile = (id: string): Promise<{ success: boolean; user: User }> =>
     apiRequest(`/users/${id}/profile`);
 
@@ -135,21 +97,12 @@ export const changePassword = (id: string, data: { currentPassword: string; newP
 export const updateProfile = (id: string, data: { password: string; mobileNumber: string }): Promise<User> =>
     apiRequest(`/users/${id}/profile`, { method: 'PUT', body: JSON.stringify(data) });
 
-// --- Teacher Request Features ---
 export const requestTeacherAccess = (id: string): Promise<{ success: boolean; message: string }> =>
     apiRequest(`/users/${id}/request-teacher`, { method: 'POST' });
 
-export const getTeacherRequests = (): Promise<User[]> =>
-    apiRequest(`/users/teacher-requests`);
+// --- View Tracking ---
+export const trackView = (lessonId: string, type: string): Promise<{ success: boolean }> =>
+    apiRequest(`/lessons/${lessonId}/view`, { method: 'POST', body: JSON.stringify({ type }) });
 
-export const approveTeacherRequest = (id: string): Promise<{ success: boolean; message: string }> =>
-    apiRequest(`/users/${id}/approve-teacher`, { method: 'PUT' });
-
-export const rejectTeacherRequest = (id: string): Promise<{ success: boolean; message: string }> =>
-    apiRequest(`/users/${id}/reject-teacher`, { method: 'PUT' });
-
-// --- Helper Functions ---
-export const getBreadcrumbs = async (lessonId: string): Promise<string> => {
-    // Placeholder - returns empty string
-    return "";
-};
+export const trackContentView = (contentId: string): Promise<{ success: boolean; viewCount: number }> =>
+    apiRequest(`/content/${contentId}/view`, { method: 'POST' });
