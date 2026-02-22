@@ -504,19 +504,19 @@ const QACard: React.FC<{
                         meta?.questionType === 'Basic' ? 'bg-emerald-500' : 'bg-blue-500'
                     }`}></div>
 
-                <div className="flex flex-wrap items-center gap-2 mb-3 pl-2">
+                <div className="flex flex-nowrap items-center gap-2 mb-3 pl-2 overflow-x-auto no-scrollbar scroll-smooth">
                     {meta?.marks && (
-                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-widest shadow-sm ${getMarksColor(meta.marks)}`}>
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-widest shadow-sm shrink-0 whitespace-nowrap ${getMarksColor(meta.marks)}`}>
                             {meta.marks} Marks
                         </span>
                     )}
                     {meta?.questionType && (
-                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest shadow-sm border ${getQuestionTypeColor(meta.questionType)}`}>
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest shadow-sm border shrink-0 whitespace-nowrap ${getQuestionTypeColor(meta.questionType)}`}>
                             {meta.questionType}
                         </span>
                     )}
                     {cp && (
-                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest shadow-sm border ${cp.color}`}>
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest shadow-sm border shrink-0 whitespace-nowrap ${cp.color}`}>
                             {cp.label}
                         </span>
                     )}
