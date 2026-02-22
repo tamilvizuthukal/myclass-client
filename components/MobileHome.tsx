@@ -51,7 +51,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
     const hasLesson = !!lessonId;
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-y-auto animate-fade-in-up pb-10">
+        <div className="flex flex-col h-full bg-slate-50/20 dark:bg-slate-950/20 backdrop-blur-md overflow-y-auto animate-fade-in-up pb-10">
             <div className="p-5 pt-8">
                 {userName && (
                     <div className="flex justify-end mb-8 animate-fade-in">
@@ -74,7 +74,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                         </p>
                     </div>
 
-                    <div className="bg-white dark:bg-gray-900 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
+                    <div className="bg-white/40 dark:bg-gray-900/40 backdrop-blur-md p-4 rounded-3xl shadow-sm border border-gray-100/50 dark:border-gray-800/50">
                         <CascadeSelectors
                             classId={classId}
                             subjectId={subjectId}
@@ -106,10 +106,10 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                                             onClick={() => onSelectResourceType(resource.key)}
                                             className={`
                                             relative group overflow-hidden rounded-3xl p-5 flex flex-col items-center justify-center gap-3
-                                            transition-all duration-300 active:scale-95 shadow-sm border border-gray-100 dark:border-gray-800/50
+                                            transition-all duration-300 active:scale-95 shadow-sm border border-gray-100/50 dark:border-gray-800/50 backdrop-blur-sm
                                             ${currentResourceType === resource.key
-                                                    ? 'bg-white dark:bg-gray-800 ring-4 ring-blue-500 shadow-xl scale-105 z-10'
-                                                    : 'bg-white dark:bg-gray-900 hover:shadow-md'
+                                                    ? 'bg-blue-500/10 dark:bg-blue-500/10 ring-4 ring-blue-500 shadow-xl scale-105 z-10'
+                                                    : 'bg-white/40 dark:bg-gray-900/40 hover:shadow-md'
                                                 }
                                         `}
                                             style={{

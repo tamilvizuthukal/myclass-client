@@ -4,18 +4,24 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { MobileHome } from './MobileHome';
 import { ProfilePage } from './ProfilePage';
+import { ExitBottomSheet } from './ExitBottomSheet';
 import { ResourceType, TeacherState } from '../types';
 import { ContentDisplay } from './ContentDisplay';
 import { useSession } from '../context/SessionContext';
+import { useToast } from '../context/ToastContext';
 import { useScrollPersistence } from '../hooks/useScrollPersistence';
 import { SelectionRestorationIndicator } from './SelectionRestorationIndicator';
+import { AnimatedBackground } from './AnimatedBackground';
 
 export const TeacherView: React.FC = () => {
     const { session, logout, updateTeacherState } = useSession();
     const { user, teacherState: state } = session;
+    const { showToast } = useToast();
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isProfilePageOpen, setIsProfilePageOpen] = useState(false);
+    const [isExitSheetOpen, setIsExitSheetOpen] = useState(false);
+    const [lastBackPress, setLastBackPress] = useState<number>(0);
 
     // Check if device is mobile
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
@@ -85,6 +91,14 @@ export const TeacherView: React.FC = () => {
     const isPopping = useRef(false);
 
     const handleGoBack = useCallback(() => {
+        if (isExitSheetOpen) {
+            // If already open, the second back press exits
+            window.close();
+            // Fallback for browsers that don't allow window.close()
+            window.history.back();
+            return;
+        }
+
         if (isProfilePageOpen) {
             setIsProfilePageOpen(false);
             return;
@@ -105,8 +119,25 @@ export const TeacherView: React.FC = () => {
             updateTeacherState({ classId: null });
         } else {
             isPopping.current = false;
+
+            // Check for double tap timing (within 2 seconds)
+            const now = Date.now();
+            if (now - lastBackPress < 2000) {
+                window.close();
+                window.history.back();
+                return;
+            }
+
+            setLastBackPress(now);
+
+            // Root reached, show exit confirmation
+            setIsExitSheetOpen(true);
+            showToast('வெளியேற மீண்டும் ஒருமுறை அழுத்தவும்', 'info');
+
+            // Push a state so that the NEXT back button press can be caught
+            window.history.pushState({ exit: true }, '');
         }
-    }, [isProfilePageOpen, state, updateTeacherState]);
+    }, [isProfilePageOpen, state, updateTeacherState, isExitSheetOpen, lastBackPress, showToast]);
 
     // Handle browser/mobile back button
     useEffect(() => {
@@ -147,7 +178,8 @@ export const TeacherView: React.FC = () => {
     const showBackButton = !!(state.selectedResourceType || isProfilePageOpen);
 
     return (
-        <div className="flex flex-col h-screen overflow-hidden">
+        <div className="flex flex-col h-screen overflow-hidden relative">
+            <AnimatedBackground />
             <Header
                 user={user}
                 onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
@@ -168,7 +200,7 @@ export const TeacherView: React.FC = () => {
                 <main
                     ref={scrollElementRef}
                     onScroll={handleScroll}
-                    className="flex-1 flex flex-col bg-gray-100 dark:bg-gray-800 overflow-y-auto relative transition-all duration-300 border-l border-gray-200 dark:border-gray-700 h-full">
+                    className="flex-1 flex flex-col bg-gray-100/50 dark:bg-gray-800/50 backdrop-blur-3xl overflow-y-auto relative transition-all duration-300 border-l border-gray-200 dark:border-gray-700 h-full">
                     {isProfilePageOpen ? (
                         <div className="h-full overflow-y-auto">
                             <ProfilePage
@@ -177,7 +209,7 @@ export const TeacherView: React.FC = () => {
                             />
                         </div>
                     ) : (
-                        <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+                        <div className="flex flex-col h-full bg-white/40 dark:bg-gray-900/40">
                             {isMobile && !state.selectedResourceType ? (
                                 <MobileHome
                                     onSelectResourceType={handleSelectResourceType}
@@ -228,6 +260,20 @@ export const TeacherView: React.FC = () => {
                     )}
                 </main>
             </div>
+            <ExitBottomSheet
+                isOpen={isExitSheetOpen}
+                onClose={() => {
+                    setIsExitSheetOpen(false);
+                    // If we close with button, we should pop the exit state we pushed
+                    if (window.history.state?.exit) {
+                        window.history.back();
+                    }
+                }}
+                onConfirm={() => {
+                    window.close();
+                    window.history.back();
+                }}
+            />
         </div>
     );
 };

@@ -127,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
   };
 
   return (
-    <header className="flex items-center justify-between px-2 sm:px-4 h-12 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 z-30 shrink-0">
+    <header className="flex items-center justify-between px-2 sm:px-4 h-12 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 z-30 shrink-0">
       <div className="flex items-center space-x-2 sm:space-x-4">
         {onBack ? (
           <button
@@ -179,7 +179,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
 
         <div className="relative" ref={dropdownRef}>
           {isDropdownOpen && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-50 border border-gray-200 dark:border-gray-700 transform origin-top-right">
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-md shadow-lg py-1 z-50 border border-gray-200 dark:border-gray-700 transform origin-top-right">
               <button
                 onClick={() => {
                   onProfile?.();
