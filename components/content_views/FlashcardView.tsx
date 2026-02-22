@@ -117,6 +117,15 @@ export const FlashcardView: React.FC<{ lessonId: string; user: User }> = ({ less
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [handleNext, handlePrev]);
 
+    const currentCard = flashcards[currentCardIndex];
+    const progressPercentage = flashcards.length > 0 ? ((currentCardIndex + 1) / flashcards.length) * 100 : 0;
+
+    useEffect(() => {
+        if (currentCard?._id) {
+            api.trackContentView(currentCard._id).catch(() => { });
+        }
+    }, [currentCard?._id]);
+
     if (isLoading) return <div className="text-center py-10 text-gray-500">Loading flashcards...</div>;
 
     if (flashcards.length === 0) {
@@ -136,14 +145,6 @@ export const FlashcardView: React.FC<{ lessonId: string; user: User }> = ({ less
         );
     }
 
-    const currentCard = flashcards[currentCardIndex];
-    const progressPercentage = ((currentCardIndex + 1) / flashcards.length) * 100;
-
-    useEffect(() => {
-        if (currentCard?._id) {
-            api.trackContentView(currentCard._id).catch(() => { });
-        }
-    }, [currentCard?._id]);
 
     return (
         <div className={`${isMobile && isLandscape ? 'p-0 fixed inset-0 z-50 bg-gray-100 dark:bg-gray-900' : 'p-4 sm:p-6 lg:p-8'} flex flex-col h-full overflow-hidden`}>
