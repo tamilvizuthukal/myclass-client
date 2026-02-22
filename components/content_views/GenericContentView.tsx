@@ -69,7 +69,13 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
     return pages.length ? pages : ['<div style="text-align: center; padding: 100px; color: #666;">No content available.</div>'];
 };
 
-const ContentCard: React.FC<{ item: Content; onExpandPdf?: (url: string) => void; onDownload?: (id: string) => void; resourceType?: ResourceType }> = ({ item, onExpandPdf, onDownload, resourceType }) => {
+const ContentCard: React.FC<{
+    item: Content;
+    onExpandPdf?: (url: string) => void;
+    onDownload?: (id: string) => void;
+    resourceType?: ResourceType;
+    onToggle?: (id: string, isOpen: boolean) => void;
+}> = ({ item, onExpandPdf, onDownload, resourceType, onToggle }) => {
     const [isOpen, setIsOpen] = useState(false);
     const isActivity = resourceType === 'activity';
     const isPdf = item.type === 'worksheet' && (item.metadata as any)?.fileId;
@@ -86,7 +92,13 @@ const ContentCard: React.FC<{ item: Content; onExpandPdf?: (url: string) => void
 
     if (isActivity) {
         return (
-            <div className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-4 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+            <div
+                className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-4 cursor-pointer"
+                onClick={() => {
+                    onToggle?.(item._id, isOpen);
+                    setIsOpen(!isOpen);
+                }}
+            >
                 <div className="w-full text-left p-5 relative bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50">
                     <div className={`absolute left-0 top-0 bottom-0 w-1.5 transition-colors duration-300 ${isOpen ? 'bg-green-500' : 'bg-purple-500'}`}></div>
                     <div className="prose dark:prose-invert max-w-none font-semibold text-lg font-tau-paalai" style={fontStyle} dangerouslySetInnerHTML={{ __html: processContentForHTML(item.title) }} />
@@ -103,7 +115,10 @@ const ContentCard: React.FC<{ item: Content; onExpandPdf?: (url: string) => void
 
     if (isPdf) {
         return (
-            <div className="group bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-gray-100 dark:border-gray-700 flex flex-col h-72 sm:h-80 overflow-hidden cursor-pointer" onClick={() => onExpandPdf?.(pdfUrl || '')}>
+            <div
+                className="group bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 border border-gray-100 dark:border-gray-700 flex flex-col h-72 sm:h-80 overflow-hidden cursor-pointer"
+                onClick={() => onExpandPdf?.(pdfUrl || '')}
+            >
                 <div className="flex-1 bg-gray-50 dark:bg-gray-900 flex items-center justify-center relative overflow-hidden">
                     {pdfUrl ? <div className="w-full h-full opacity-90 group-hover:opacity-100 scale-95 group-hover:scale-100 duration-500"><PdfViewer url={pdfUrl} initialScale={0.45} /></div> : <div className="text-red-400 text-xs">Preview Unavailable</div>}
                     <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/10 transition-all opacity-0 group-hover:opacity-100">
@@ -119,7 +134,13 @@ const ContentCard: React.FC<{ item: Content; onExpandPdf?: (url: string) => void
     }
 
     return (
-        <div className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700 overflow-hidden mb-4 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+        <div
+            className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700 overflow-hidden mb-4 cursor-pointer"
+            onClick={() => {
+                onToggle?.(item._id, isOpen);
+                setIsOpen(!isOpen);
+            }}
+        >
             <div className="w-full text-left p-5 relative bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50 flex justify-between items-center gap-4">
                 <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500"></div>
                 <div className="prose dark:prose-invert max-w-none font-semibold text-lg font-tau-paalai flex-1" style={fontStyle} dangerouslySetInnerHTML={{ __html: processContentForHTML(item.title) }} />
@@ -144,13 +165,16 @@ export const GenericContentView: React.FC<{ lessonId: string; user: User; resour
     const resourceInfo = RESOURCE_TYPES.find(r => r.key === resourceType) || { key: resourceType, label: resourceType, Icon: () => null, description: 'Resource', color: 'text-gray-500', gradient: 'from-gray-500 to-gray-600' };
     const isWorksheet = resourceType === 'worksheet';
 
-    useEffect(() => {
-        if (!isLoading && contentItems.length > 0) {
-            contentItems.forEach(item => {
-                api.trackContentView(item._id).catch(() => { });
-            });
+    const handleExpandPdf = (url: string, id: string) => {
+        api.trackContentView(id).catch(() => { });
+        setFullscreenPdfUrl(url);
+    };
+
+    const handleToggleCard = (id: string, currentlyOpen: boolean) => {
+        if (!currentlyOpen) {
+            api.trackContentView(id).catch(() => { });
         }
-    }, [contentItems, isLoading]);
+    };
 
     const handleExport = async () => {
         setSweetAlert({ show: true, type: 'loading', title: 'பதிவிறக்கம் | Downloading', message: 'PDF தயாரிக்கப்படுகிறது... தயவுசெய்து காத்திருக்கவும்\n\nGenerating PDF... Please wait' });
@@ -213,7 +237,16 @@ export const GenericContentView: React.FC<{ lessonId: string; user: User; resour
             <div className="flex-1 overflow-y-auto min-h-0 no-scrollbar">
                 {isLoading && <div className="text-center py-10 text-gray-500">Loading content...</div>}
                 {!isLoading && contentItems.length > 0 && <div className={isWorksheet ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-6" : "space-y-4 pb-6"}>
-                    {contentItems.map(item => <ContentCard key={item._id} item={item} onExpandPdf={setFullscreenPdfUrl} onDownload={handleDownload} resourceType={resourceType} />)}
+                    {contentItems.map(item => (
+                        <ContentCard
+                            key={item._id}
+                            item={item}
+                            onExpandPdf={(url) => handleExpandPdf(url, item._id)}
+                            onDownload={handleDownload}
+                            resourceType={resourceType}
+                            onToggle={handleToggleCard}
+                        />
+                    ))}
                 </div>}
                 {!isLoading && contentItems.length === 0 && <div className="text-center py-20 bg-white dark:bg-gray-800/50 rounded-lg"><resourceInfo.Icon className="w-16 h-16 mx-auto text-gray-300 mb-4" /><p className="text-gray-500">No {resourceInfo.label.toLowerCase()} available.</p></div>}
             </div>

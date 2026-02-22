@@ -56,6 +56,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
   };
 
   useEffect(() => {
+    const themeColor = isDarkMode ? '#111827' : '#ffffff';
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
@@ -63,6 +64,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onLogout,
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor);
   }, [isDarkMode]);
 
   const toggleDarkMode = () => {

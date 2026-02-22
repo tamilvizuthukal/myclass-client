@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { CascadeSelectors } from './CascadeSelectors';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
@@ -75,12 +75,76 @@ export const TeacherView: React.FC = () => {
     }, [isProfilePageOpen]);
 
     const handleBackToGrid = useCallback(() => {
-        updateTeacherState({ selectedResourceType: null });
+        updateTeacherState({
+            selectedResourceType: null,
+            scrollPosition: 0
+        });
+        setIsProfilePageOpen(false);
     }, [updateTeacherState]);
+
+    const isPopping = useRef(false);
+
+    const handleGoBack = useCallback(() => {
+        if (isProfilePageOpen) {
+            setIsProfilePageOpen(false);
+            return;
+        }
+
+        isPopping.current = true;
+        if (state.selectedResourceType) {
+            updateTeacherState({ selectedResourceType: null });
+        } else if (state.lessonId) {
+            updateTeacherState({ lessonId: null });
+        } else if (state.subUnitId) {
+            updateTeacherState({ subUnitId: null });
+        } else if (state.unitId) {
+            updateTeacherState({ unitId: null });
+        } else if (state.subjectId) {
+            updateTeacherState({ subjectId: null });
+        } else if (state.classId) {
+            updateTeacherState({ classId: null });
+        } else {
+            isPopping.current = false;
+        }
+    }, [isProfilePageOpen, state, updateTeacherState]);
+
+    // Handle browser/mobile back button
+    useEffect(() => {
+        const handlePopState = (e: PopStateEvent) => {
+            // No need to prevent default for popstate, but we handle it
+            handleGoBack();
+        };
+
+        window.addEventListener('popstate', handlePopState);
+
+        // Push an initial state so we have something to pop
+        if (window.history.state === null) {
+            window.history.replaceState({ path: 'home' }, '');
+        }
+
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [handleGoBack]);
+
+    // Push to history when navigation state changes to enable the back button
+    useEffect(() => {
+        if (isPopping.current) {
+            isPopping.current = false;
+            return;
+        }
+
+        const hasSelection = state.classId || state.subjectId || state.unitId || state.subUnitId || state.lessonId || state.selectedResourceType || isProfilePageOpen;
+        if (hasSelection) {
+            // We push a dummy state so the next back button press triggers popstate
+            window.history.pushState({ nav: Date.now() }, '');
+        }
+    }, [state.classId, state.subjectId, state.unitId, state.subUnitId, state.lessonId, state.selectedResourceType, isProfilePageOpen]);
 
     if (!user) {
         return null; // Safeguard
     }
+
+    // Only show back button if we are "inside" something (resource view or profile)
+    const showBackButton = !!(state.selectedResourceType || isProfilePageOpen);
 
     return (
         <div className="flex flex-col h-screen overflow-hidden">
@@ -89,7 +153,7 @@ export const TeacherView: React.FC = () => {
                 onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
                 onLogout={logout}
                 onProfile={handleProfile}
-                onBack={isMobile && state.selectedResourceType ? handleBackToGrid : undefined}
+                onBack={isMobile && showBackButton ? handleBackToGrid : undefined}
                 isMobile={isMobile}
             />
             <SelectionRestorationIndicator />
