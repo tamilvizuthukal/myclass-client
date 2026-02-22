@@ -25,6 +25,19 @@ interface MobileHomeProps {
     userName?: string;
 }
 
+// Bubble configuration
+// type: 'fade' = mid-way disappear | 'top' = reaches the top
+const BUBBLE_CONFIG: { left: string; size: number; delay: number; duration: number; type: 'fade' | 'top' }[] = [
+    { left: '8%', size: 5, delay: 0, duration: 9, type: 'fade' },
+    { left: '22%', size: 4, delay: 3.5, duration: 12, type: 'top' },
+    { left: '38%', size: 6, delay: 1.5, duration: 10, type: 'fade' },
+    { left: '52%', size: 4, delay: 5.0, duration: 11, type: 'fade' },
+    { left: '63%', size: 7, delay: 2.2, duration: 13, type: 'top' },
+    { left: '76%', size: 5, delay: 0.8, duration: 10, type: 'fade' },
+    { left: '88%', size: 4, delay: 4.1, duration: 12, type: 'fade' },
+    { left: '45%', size: 6, delay: 7.0, duration: 14, type: 'top' },
+];
+
 export const MobileHome: React.FC<MobileHomeProps> = ({
     onSelectResourceType,
     currentResourceType,
@@ -51,8 +64,30 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
     const hasLesson = !!lessonId;
 
     return (
-        <div className="flex flex-col h-full bg-slate-50/20 dark:bg-slate-950/20 backdrop-blur-md overflow-y-auto animate-fade-in-up pb-10">
-            <div className="p-5 pt-8">
+        <div className="relative flex flex-col h-full bg-slate-50/20 dark:bg-slate-950/20 backdrop-blur-md overflow-y-auto animate-fade-in-up pb-10">
+
+            {/* ===== BUBBLE ANIMATION LAYER ===== */}
+            <div
+                aria-hidden="true"
+                className="bubble-container"
+            >
+                {BUBBLE_CONFIG.map((b, i) => (
+                    <span
+                        key={i}
+                        className={b.type === 'top' ? 'bubble bubble-top' : 'bubble bubble-fade'}
+                        style={{
+                            left: b.left,
+                            width: `${b.size}px`,
+                            height: `${b.size}px`,
+                            animationDelay: `${b.delay}s`,
+                            animationDuration: `${b.duration}s`,
+                        }}
+                    />
+                ))}
+            </div>
+            {/* ================================= */}
+
+            <div className="p-5 pt-8 relative z-10">
                 {userName && (
                     <div className="flex justify-end mb-2 animate-fade-in">
                         <div className="text-right flex flex-col items-end shrink-0 px-4 py-2 rounded-2xl border-r-4 border-blue-500 bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800">
@@ -169,6 +204,57 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
             </div>
 
             <style>{`
+                /* ======== BUBBLE RISE ANIMATION ======== */
+                .bubble-container {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    top: 0;
+                    pointer-events: none;
+                    overflow: hidden;
+                    z-index: 1;
+                }
+
+                /* Base bubble styles */
+                .bubble {
+                    position: fixed;
+                    bottom: 0px;
+                    border-radius: 50%;
+                    background: radial-gradient(circle at 35% 35%, rgba(255,120,120,0.6), rgba(200,20,20,0.3));
+                    box-shadow: inset 0 0 3px rgba(255,255,255,0.25);
+                    opacity: 0;
+                    will-change: transform, opacity;
+                }
+
+                /* Fades out around mid-screen */
+                .bubble-fade {
+                    animation: bubbleMidFade linear infinite;
+                }
+
+                /* Travels all the way to the top */
+                .bubble-top {
+                    animation: bubbleFullRise linear infinite;
+                }
+
+                @keyframes bubbleMidFade {
+                    0%   { transform: translateY(0)      translateX(0px);  opacity: 0;    }
+                    8%   { opacity: 0.45; }
+                    50%  { transform: translateY(-45vh)  translateX(6px);  opacity: 0.3;  }
+                    70%  { transform: translateY(-62vh)  translateX(-4px); opacity: 0;    }
+                    100% { transform: translateY(-100vh) translateX(2px);  opacity: 0;    }
+                }
+
+                @keyframes bubbleFullRise {
+                    0%   { transform: translateY(0)      translateX(0px);  opacity: 0;    }
+                    8%   { opacity: 0.5; }
+                    45%  { transform: translateY(-40vh)  translateX(5px);  opacity: 0.35; }
+                    75%  { transform: translateY(-72vh)  translateX(-3px); opacity: 0.2;  }
+                    92%  { opacity: 0.05; }
+                    100% { transform: translateY(-103vh) translateX(1px);  opacity: 0;    }
+                }
+
+                /* ======== OTHER ANIMATIONS ======== */
                 @keyframes subtleFloat {
                     0%, 100% { transform: translateY(0) rotate(0); }
                     50% { transform: translateY(-6px) rotate(2deg); }
