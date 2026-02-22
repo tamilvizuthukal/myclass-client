@@ -1,96 +1,133 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface ExitBottomSheetProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onConfirm: () => void;
+    visible: boolean;
+    onDismiss: () => void;
 }
 
-export const ExitBottomSheet: React.FC<ExitBottomSheetProps> = ({ isOpen, onClose, onConfirm }) => {
-    useEffect(() => {
-        if (isOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = '';
-        }
-        return () => {
-            document.body.style.overflow = '';
-        };
-    }, [isOpen]);
+export const ExitBottomSheet: React.FC<ExitBottomSheetProps> = ({ visible, onDismiss }) => {
+    const [progress, setProgress] = useState(100);
+    const [rendered, setRendered] = useState(false);
+    const [animIn, setAnimIn] = useState(false);
 
-    if (!isOpen) return null;
+    useEffect(() => {
+        if (visible) {
+            setRendered(true);
+            setProgress(100);
+            // Trigger animation after mount
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => setAnimIn(true));
+            });
+
+            const duration = 3000;
+            const interval = 30;
+            const step = (interval / duration) * 100;
+            let current = 100;
+
+            const timer = setInterval(() => {
+                current -= step;
+                if (current <= 0) {
+                    clearInterval(timer);
+                    setProgress(0);
+                    // Animate out then dismiss
+                    setAnimIn(false);
+                    setTimeout(() => {
+                        setRendered(false);
+                        onDismiss();
+                    }, 350);
+                } else {
+                    setProgress(current);
+                }
+            }, interval);
+
+            return () => clearInterval(timer);
+        } else {
+            setAnimIn(false);
+            const t = setTimeout(() => setRendered(false), 350);
+            return () => clearTimeout(t);
+        }
+    }, [visible, onDismiss]);
+
+    if (!rendered) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center">
-            {/* Backdrop */}
+        <>
+            {/* Backdrop - subtle */}
             <div
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"
-                onClick={onClose}
+                className="fixed inset-0 z-[9998]"
+                style={{
+                    pointerEvents: animIn ? 'auto' : 'none',
+                    background: 'transparent',
+                }}
+                onClick={onDismiss}
             />
 
-            {/* Sheet */}
-            <div className={`
-                relative w-full max-w-md bg-white dark:bg-gray-900 rounded-t-[32px] sm:rounded-[32px] 
-                shadow-2xl border-t border-gray-100 dark:border-gray-800 p-6 pb-10 sm:pb-6
-                animate-slide-up-mobile sm:animate-bounce-in
-            `}>
-                {/* Drag Handle (Mobile) */}
-                <div className="w-12 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-6 sm:hidden" />
-
-                <div className="flex flex-col items-center text-center">
-                    <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4 ring-8 ring-red-50/50 dark:ring-red-900/10">
-                        <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
+            {/* Bottom sheet */}
+            <div
+                className="fixed bottom-0 left-0 right-0 z-[9999] flex justify-center pb-safe"
+                style={{
+                    transform: animIn ? 'translateY(0)' : 'translateY(110%)',
+                    transition: 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)',
+                    paddingBottom: 'env(safe-area-inset-bottom, 16px)',
+                }}
+            >
+                <div
+                    className="mx-4 mb-4 w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
+                    style={{
+                        background: 'rgba(15, 15, 15, 0.92)',
+                        backdropFilter: 'blur(24px)',
+                        WebkitBackdropFilter: 'blur(24px)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                    }}
+                >
+                    {/* Progress bar on top */}
+                    <div className="h-1 w-full bg-white/10 rounded-t-3xl overflow-hidden">
+                        <div
+                            className="h-full bg-gradient-to-r from-blue-400 to-purple-400 rounded-full"
+                            style={{
+                                width: `${progress}%`,
+                                transition: 'width 30ms linear',
+                            }}
+                        />
                     </div>
 
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 font-tau-marutham">
-                        வெளியேறவா?
-                    </h2>
-                    <p className="text-gray-500 dark:text-gray-400 mb-8 font-tau-paalai text-[14px]">
-                        செயலியை விட்டு வெளியேற விரும்புகிறீர்களா? <br />
-                        மீண்டும் ஒருமுறை அழுத்தவும்.
-                    </p>
+                    <div className="px-5 py-4 flex items-center gap-4">
+                        {/* Icon */}
+                        <div className="flex-shrink-0 w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center">
+                            <svg className="w-6 h-6 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                        </div>
 
-                    <div className="grid grid-cols-2 gap-4 w-full">
-                        <button
-                            onClick={onClose}
-                            className="flex items-center justify-center gap-2 py-4 px-6 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold transition-all active:scale-95 font-tau-paalai text-[14px]"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                            இல்லை
-                        </button>
-                        <button
-                            onClick={onConfirm}
-                            className="flex items-center justify-center gap-2 py-4 px-6 rounded-2xl bg-red-500 text-white font-bold shadow-lg shadow-red-500/30 transition-all active:scale-95 font-tau-paalai text-[14px]"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </svg>
-                            வெளியேறு
-                        </button>
+                        {/* Text */}
+                        <div className="flex-1 min-w-0">
+                            <p className="text-white font-bold text-[15px] font-tau-paalai leading-tight">
+                                வெளியேற இரண்டு முறை அழுத்தவும்
+                            </p>
+                            <p className="text-white/50 text-[12px] font-sans mt-0.5 tracking-wide">
+                                Double tap · Back to exit
+                            </p>
+                        </div>
+
+                        {/* Tap indicator dots */}
+                        <div className="flex-shrink-0 flex gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping-slow" />
+                            <span className="w-2.5 h-2.5 rounded-full bg-purple-400/50" />
+                        </div>
                     </div>
                 </div>
             </div>
 
             <style>{`
-                @keyframes slideUpMobile {
-                    from { transform: translateY(100%); }
-                    to { transform: translateY(0); }
+                @keyframes pingSlow {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.4; transform: scale(0.75); }
                 }
-                .animate-slide-up-mobile {
-                    animation: slideUpMobile 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-                }
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-                .animate-fade-in {
-                    animation: fadeIn 0.3s ease-out;
+                .animate-ping-slow {
+                    animation: pingSlow 1s ease-in-out infinite;
                 }
             `}</style>
-        </div>
+        </>
     );
 };

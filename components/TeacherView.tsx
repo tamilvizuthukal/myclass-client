@@ -8,7 +8,6 @@ import { ExitBottomSheet } from './ExitBottomSheet';
 import { ResourceType, TeacherState } from '../types';
 import { ContentDisplay } from './ContentDisplay';
 import { useSession } from '../context/SessionContext';
-import { useToast } from '../context/ToastContext';
 import { useScrollPersistence } from '../hooks/useScrollPersistence';
 import { SelectionRestorationIndicator } from './SelectionRestorationIndicator';
 import { AnimatedBackground } from './AnimatedBackground';
@@ -16,12 +15,11 @@ import { AnimatedBackground } from './AnimatedBackground';
 export const TeacherView: React.FC = () => {
     const { session, logout, updateTeacherState } = useSession();
     const { user, teacherState: state } = session;
-    const { showToast } = useToast();
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isProfilePageOpen, setIsProfilePageOpen] = useState(false);
-    const [isExitSheetOpen, setIsExitSheetOpen] = useState(false);
-    const [lastBackPress, setLastBackPress] = useState<number>(0);
+    const [showExitSheet, setShowExitSheet] = useState(false);
+    const exitSheetShowing = useRef(false);
 
     // Check if device is mobile
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
@@ -91,14 +89,6 @@ export const TeacherView: React.FC = () => {
     const isPopping = useRef(false);
 
     const handleGoBack = useCallback(() => {
-        if (isExitSheetOpen) {
-            // If already open, the second back press exits
-            window.close();
-            // Fallback for browsers that don't allow window.close()
-            window.history.back();
-            return;
-        }
-
         if (isProfilePageOpen) {
             setIsProfilePageOpen(false);
             return;
@@ -118,26 +108,19 @@ export const TeacherView: React.FC = () => {
         } else if (state.classId) {
             updateTeacherState({ classId: null });
         } else {
+            // We are on the home page with nothing selected
             isPopping.current = false;
-
-            // Check for double tap timing (within 2 seconds)
-            const now = Date.now();
-            if (now - lastBackPress < 2000) {
+            if (exitSheetShowing.current) {
+                // Second tap while sheet is visible → close the browser/app
                 window.close();
-                window.history.back();
-                return;
+                // Fallback for browsers that block window.close()
+                window.location.href = 'about:blank';
+            } else {
+                exitSheetShowing.current = true;
+                setShowExitSheet(true);
             }
-
-            setLastBackPress(now);
-
-            // Root reached, show exit confirmation
-            setIsExitSheetOpen(true);
-            showToast('வெளியேற மீண்டும் ஒருமுறை அழுத்தவும்', 'info');
-
-            // Push a state so that the NEXT back button press can be caught
-            window.history.pushState({ exit: true }, '');
         }
-    }, [isProfilePageOpen, state, updateTeacherState, isExitSheetOpen, lastBackPress, showToast]);
+    }, [isProfilePageOpen, state, updateTeacherState]);
 
     // Handle browser/mobile back button
     useEffect(() => {
@@ -177,9 +160,15 @@ export const TeacherView: React.FC = () => {
     // Only show back button if we are "inside" something (resource view or profile)
     const showBackButton = !!(state.selectedResourceType || isProfilePageOpen);
 
+    const handleExitSheetDismiss = useCallback(() => {
+        exitSheetShowing.current = false;
+        setShowExitSheet(false);
+    }, []);
+
     return (
         <div className="flex flex-col h-screen overflow-hidden relative">
             <AnimatedBackground />
+            <ExitBottomSheet visible={showExitSheet} onDismiss={handleExitSheetDismiss} />
             <Header
                 user={user}
                 onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
@@ -260,20 +249,6 @@ export const TeacherView: React.FC = () => {
                     )}
                 </main>
             </div>
-            <ExitBottomSheet
-                isOpen={isExitSheetOpen}
-                onClose={() => {
-                    setIsExitSheetOpen(false);
-                    // If we close with button, we should pop the exit state we pushed
-                    if (window.history.state?.exit) {
-                        window.history.back();
-                    }
-                }}
-                onConfirm={() => {
-                    window.close();
-                    window.history.back();
-                }}
-            />
         </div>
     );
 };

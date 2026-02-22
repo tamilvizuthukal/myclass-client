@@ -54,7 +54,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
         <div className="flex flex-col h-full bg-slate-50/20 dark:bg-slate-950/20 backdrop-blur-md overflow-y-auto animate-fade-in-up pb-10">
             <div className="p-5 pt-8">
                 {userName && (
-                    <div className="flex justify-end mb-8 animate-fade-in">
+                    <div className="flex justify-end mb-2 animate-fade-in">
                         <div className="text-right flex flex-col items-end shrink-0 px-4 py-2 rounded-2xl border-r-4 border-blue-500 bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800">
                             <span className="text-[11px] text-gray-500 dark:text-gray-400 font-tau-paalai uppercase tracking-widest font-bold">நல்வரவு!</span>
                             <span className="text-[16px] font-extrabold text-blue-600 dark:text-blue-400 font-tau-paalai leading-tight">
@@ -64,7 +64,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                     </div>
                 )}
 
-                <div className="space-y-8">
+                <div className="space-y-4">
                     <div>
                         <h1 className="text-4xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight font-tau-marutham">
                             முகப்பு

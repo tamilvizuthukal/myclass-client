@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { useApi } from '../hooks/useApi';
 import { getClasses, getSubjectsByClassId, getUnitsBySubjectId, getSubUnitsByUnitId, getLessonsBySubUnitId } from '../services/api';
 import { Class, Subject, Unit, SubUnit, Lesson } from '../types';
@@ -75,28 +76,28 @@ export const SelectionModal: React.FC<SelectionModalProps> = ({
   onlyPublished = false,
   lockedClassName
 }) => {
-  const { data: classes, isLoading: isLoadingClasses } = useApi<Class[]>(() => getClasses(onlyPublished), [onlyPublished]);
+  const { data: classes, isLoading: isLoadingClasses } = useApi<Class[]>(() => getClasses(), []);
   const { data: subjects, isLoading: isLoadingSubjects } = useApi<Subject[]>(
-    () => getSubjectsByClassId(classId!, onlyPublished),
-    [classId, onlyPublished],
+    () => getSubjectsByClassId(classId!),
+    [classId],
     !!classId,
     { keepPreviousData: false }
   );
   const { data: units, isLoading: isLoadingUnits } = useApi<Unit[]>(
-    () => getUnitsBySubjectId(subjectId!, onlyPublished),
-    [subjectId, onlyPublished],
+    () => getUnitsBySubjectId(subjectId!),
+    [subjectId],
     !!subjectId,
     { keepPreviousData: false }
   );
   const { data: subUnits, isLoading: isLoadingSubUnits } = useApi<SubUnit[]>(
-    () => getSubUnitsByUnitId(unitId!, onlyPublished),
-    [unitId, onlyPublished],
+    () => getSubUnitsByUnitId(unitId!),
+    [unitId],
     !!unitId,
     { keepPreviousData: false }
   );
   const { data: lessons, isLoading: isLoadingLessons } = useApi<Lesson[]>(
-    () => getLessonsBySubUnitId(subUnitId!, onlyPublished),
-    [subUnitId, onlyPublished],
+    () => getLessonsBySubUnitId(subUnitId!),
+    [subUnitId],
     !!subUnitId,
     { keepPreviousData: false }
   );
@@ -123,8 +124,8 @@ export const SelectionModal: React.FC<SelectionModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+  return ReactDOM.createPortal(
+    <div className="fixed inset-0 z-[9999] overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         {/* Background overlay */}
         <div
@@ -133,7 +134,7 @@ export const SelectionModal: React.FC<SelectionModalProps> = ({
         ></div>
 
         {/* Modal panel */}
-        <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-gray-900 shadow-xl rounded-2xl border border-gray-200 dark:border-gray-700">
+        <div className="relative inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-gray-900 shadow-xl rounded-2xl border border-gray-200 dark:border-gray-700">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -230,6 +231,7 @@ export const SelectionModal: React.FC<SelectionModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
