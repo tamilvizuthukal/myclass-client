@@ -69,6 +69,40 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
     return pages.length ? pages : ['<div style="text-align: center; padding: 100px; color: #666;">No content available.</div>'];
 };
 
+import { useTTS } from '../../hooks/useTTS';
+
+import { PlayIcon, PauseIcon, StopIcon, SpeakerIcon } from '../icons/TTSIcons';
+
+const findRangeForCharOffsets = (root: Node, start: number, length: number): Range | null => {
+    let charCount = 0;
+    let startNode: Node | null = null;
+    let startOffset = 0;
+    let endNode: Node | null = null;
+    let endOffset = 0;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+        const nodeTextLength = node.textContent?.length || 0;
+        if (!startNode && charCount + nodeTextLength > start) {
+            startNode = node;
+            startOffset = start - charCount;
+        }
+        if (startNode && charCount + nodeTextLength >= start + length) {
+            endNode = node;
+            endOffset = (start + length) - charCount;
+            break;
+        }
+        charCount += nodeTextLength;
+    }
+    if (startNode && endNode) {
+        const range = document.createRange();
+        range.setStart(startNode, startOffset);
+        range.setEnd(endNode, endOffset);
+        return range;
+    }
+    return null;
+};
+
 const ContentCard: React.FC<{
     item: Content;
     onExpandPdf?: (url: string) => void;
@@ -77,6 +111,9 @@ const ContentCard: React.FC<{
     onToggle?: (id: string, isOpen: boolean) => void;
 }> = ({ item, onExpandPdf, onDownload, resourceType, onToggle }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const { speak, pause, stop, isSpeaking, isPaused, speakingWord } = useTTS();
+    const titleRef = useRef<HTMLDivElement>(null);
+    const bodyRef = useRef<HTMLDivElement>(null);
     const isActivity = resourceType === 'activity';
     const isPdf = item.type === 'worksheet' && (item.metadata as any)?.fileId;
     const { session } = useSession();
@@ -90,10 +127,51 @@ const ContentCard: React.FC<{
 
     const pdfUrl = isPdf ? getPdfUrl() : null;
 
+    const handleSpeakAction = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const fullContent = `${item.title}. ${item.body}`;
+        if (isSpeaking && !isPaused) {
+            pause();
+        } else if (isPaused) {
+            speak(fullContent, false); // Resume from pause
+        } else {
+            speak(fullContent, true); // Start from beginning
+        }
+    };
+
+    useEffect(() => {
+        if (isSpeaking && speakingWord) {
+            const titleLength = (item.title || "").replace(/<[^>]*>/g, "").length + 2;
+            let range: Range | null = null;
+            if (speakingWord.start < titleLength) {
+                if (titleRef.current) range = findRangeForCharOffsets(titleRef.current, speakingWord.start, speakingWord.length);
+            } else {
+                if (bodyRef.current) range = findRangeForCharOffsets(bodyRef.current, speakingWord.start - titleLength, speakingWord.length);
+            }
+            if (range) {
+                const selection = window.getSelection();
+                if (selection) {
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            }
+        }
+    }, [isSpeaking, speakingWord, item.title, item.body]);
+
+    useEffect(() => {
+        if (!isSpeaking && !isPaused) {
+            window.getSelection()?.removeAllRanges();
+        }
+    }, [isSpeaking, isPaused]);
+
+    useEffect(() => {
+        stop();
+    }, [item._id, stop]);
+
     if (isActivity) {
         return (
             <div
-                className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-4 cursor-pointer"
+                className={`group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-4 cursor-pointer hover:shadow-md transition-shadow ${isSpeaking ? 'ring-2 ring-green-400 dark:ring-green-500 shadow-xl' : ''}`}
                 onClick={() => {
                     onToggle?.(item._id, isOpen);
                     setIsOpen(!isOpen);
@@ -101,11 +179,35 @@ const ContentCard: React.FC<{
             >
                 <div className="w-full text-left p-5 relative bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50">
                     <div className={`absolute left-0 top-0 bottom-0 w-1.5 transition-colors duration-300 ${isOpen ? 'bg-green-500' : 'bg-purple-500'}`}></div>
-                    <div className="prose dark:prose-invert max-w-none font-semibold text-lg font-tau-paalai" style={fontStyle} dangerouslySetInnerHTML={{ __html: processContentForHTML(item.title) }} />
-                    {isOpen && (
+
+                    <div className="flex justify-between items-start gap-4">
+                        <div ref={titleRef} className="prose dark:prose-invert max-w-none font-semibold text-lg font-tau-paalai flex-1 selection:bg-green-200 selection:text-black" style={fontStyle} dangerouslySetInnerHTML={{ __html: processContentForHTML(item.title) }} />
+                        <div className="flex items-center gap-1 shrink-0">
+                            {!isSpeaking && !isPaused ? (
+                                <button
+                                    onClick={handleSpeakAction}
+                                    className="p-2.5 rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 transition-all"
+                                    title="Read aloud"
+                                >
+                                    <SpeakerIcon className="w-5 h-5" />
+                                </button>
+                            ) : (
+                                <div className="flex items-center gap-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700">
+                                    {isPaused ? (
+                                        <button onClick={handleSpeakAction} className="p-2 rounded-full bg-green-100 text-green-600 hover:bg-green-200 transition-all"><PlayIcon className="w-5 h-5" /></button>
+                                    ) : (
+                                        <button onClick={(e) => { e.stopPropagation(); pause(); }} className="p-2 rounded-full bg-amber-100 text-amber-600 hover:bg-amber-200 transition-all"><PauseIcon className="w-5 h-5" /></button>
+                                    )}
+                                    <button onClick={(e) => { e.stopPropagation(); stop(); }} className="p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-all"><StopIcon className="w-5 h-5" /></button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {(isOpen || isSpeaking) && (
                         <div className="mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700 animate-fade-in">
                             <div className="text-sm font-bold text-green-600 mb-1">Answer:</div>
-                            <div className="prose dark:prose-invert max-w-none text-gray-700 font-tau-paalai" style={fontStyle} dangerouslySetInnerHTML={{ __html: processContentForHTML(item.body) }} />
+                            <div ref={bodyRef} className="prose dark:prose-invert max-w-none text-gray-700 font-tau-paalai selection:bg-green-200 selection:text-black" style={fontStyle} dangerouslySetInnerHTML={{ __html: processContentForHTML(item.body) }} />
                         </div>
                     )}
                 </div>
@@ -135,7 +237,7 @@ const ContentCard: React.FC<{
 
     return (
         <div
-            className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700 overflow-hidden mb-4 cursor-pointer"
+            className={`group bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-xl transition-all border border-gray-100 dark:border-gray-700 overflow-hidden mb-4 cursor-pointer ${isSpeaking ? 'ring-2 ring-blue-400 dark:ring-blue-500 shadow-xl' : ''}`}
             onClick={() => {
                 onToggle?.(item._id, isOpen);
                 setIsOpen(!isOpen);
@@ -143,12 +245,33 @@ const ContentCard: React.FC<{
         >
             <div className="w-full text-left p-5 relative bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50 flex justify-between items-center gap-4">
                 <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500"></div>
-                <div className="prose dark:prose-invert max-w-none font-semibold text-lg font-tau-paalai flex-1" style={fontStyle} dangerouslySetInnerHTML={{ __html: processContentForHTML(item.title) }} />
-                <div className={`p-1.5 rounded-full bg-gray-100 dark:bg-gray-700 transition-transform ${isOpen ? 'rotate-90' : ''}`}><ChevronRightIcon className="w-5 h-5" /></div>
+                <div ref={titleRef} className="prose dark:prose-invert max-w-none font-semibold text-lg font-tau-paalai flex-1 selection:bg-blue-200 selection:text-black" style={fontStyle} dangerouslySetInnerHTML={{ __html: processContentForHTML(item.title) }} />
+
+                <div className="flex items-center gap-2">
+                    {!isSpeaking && !isPaused ? (
+                        <button
+                            onClick={handleSpeakAction}
+                            className="p-2.5 rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 transition-all"
+                            title="Read aloud"
+                        >
+                            <SpeakerIcon className="w-5 h-5" />
+                        </button>
+                    ) : (
+                        <div className="flex items-center gap-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700">
+                            {isPaused ? (
+                                <button onClick={handleSpeakAction} className="p-2 rounded-full bg-green-100 text-green-600 hover:bg-green-200 transition-all"><PlayIcon className="w-5 h-5" /></button>
+                            ) : (
+                                <button onClick={(e) => { e.stopPropagation(); pause(); }} className="p-2 rounded-full bg-amber-100 text-amber-600 hover:bg-amber-200 transition-all"><PauseIcon className="w-5 h-5" /></button>
+                            )}
+                            <button onClick={(e) => { e.stopPropagation(); stop(); }} className="p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-all"><StopIcon className="w-5 h-5" /></button>
+                        </div>
+                    )}
+                    <div className={`p-1.5 rounded-full bg-gray-100 dark:bg-gray-700 transition-transform ${isOpen ? 'rotate-90' : ''}`}><ChevronRightIcon className="w-5 h-5" /></div>
+                </div>
             </div>
-            {isOpen && (
+            {(isOpen || isSpeaking) && (
                 <div className="p-5 border-t border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/50">
-                    <div className="prose dark:prose-invert max-w-none font-tau-paalai" style={fontStyle} dangerouslySetInnerHTML={{ __html: processContentForHTML(item.body) }} />
+                    <div ref={bodyRef} className="prose dark:prose-invert max-w-none font-tau-paalai selection:bg-blue-200 selection:text-black" style={fontStyle} dangerouslySetInnerHTML={{ __html: processContentForHTML(item.body) }} />
                 </div>
             )}
         </div>

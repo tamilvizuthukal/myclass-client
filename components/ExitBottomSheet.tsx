@@ -102,11 +102,11 @@ export const ExitBottomSheet: React.FC<ExitBottomSheetProps> = ({ visible, onDis
 
                         {/* Text */}
                         <div className="flex-1 min-w-0">
-                            <p className="text-white font-bold text-[15px] font-tau-paalai leading-tight">
-                                வெளியேற இரண்டு முறை அழுத்தவும்
+                            <p className="text-white font-black text-[17px] font-sans leading-tight tracking-tight uppercase">
+                                Double tap to exit app
                             </p>
-                            <p className="text-white/50 text-[12px] font-sans mt-0.5 tracking-wide">
-                                Double tap · Back to exit
+                            <p className="text-white/50 text-[12px] font-sans mt-1 tracking-widest uppercase opacity-70">
+                                Press back again
                             </p>
                         </div>
 

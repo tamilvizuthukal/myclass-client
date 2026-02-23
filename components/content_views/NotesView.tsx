@@ -22,17 +22,122 @@ interface NotesViewProps {
     user: User;
 }
 
+import { useTTS } from '../../hooks/useTTS';
+import { PlayIcon, PauseIcon, StopIcon, SpeakerIcon } from '../icons/TTSIcons';
+
+const findRangeForCharOffsets = (root: Node, start: number, length: number): Range | null => {
+    let charCount = 0;
+    let startNode: Node | null = null;
+    let startOffset = 0;
+    let endNode: Node | null = null;
+    let endOffset = 0;
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    let node: Node | null;
+
+    while ((node = walker.nextNode())) {
+        const nodeTextLength = node.textContent?.length || 0;
+
+        if (!startNode && charCount + nodeTextLength > start) {
+            startNode = node;
+            startOffset = start - charCount;
+        }
+
+        if (startNode && charCount + nodeTextLength >= start + length) {
+            endNode = node;
+            endOffset = (start + length) - charCount;
+            break;
+        }
+
+        charCount += nodeTextLength;
+    }
+
+    if (startNode && endNode) {
+        const range = document.createRange();
+        range.setStart(startNode, startOffset);
+        range.setEnd(endNode, endOffset);
+        return range;
+    }
+    return null;
+};
+
 const NoteCard: React.FC<{ item: Content; }> = ({ item }) => {
     const { session } = useSession();
+    const { speak, pause, stop, isSpeaking, isPaused, speakingWord } = useTTS();
+    const contentRef = useRef<HTMLDivElement>(null);
     const fontStyle = { fontSize: `${session.fontSize}px` };
 
+    useEffect(() => {
+        if (isSpeaking && speakingWord && contentRef.current) {
+            const range = findRangeForCharOffsets(contentRef.current, speakingWord.start, speakingWord.length);
+            if (range) {
+                const selection = window.getSelection();
+                if (selection) {
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            }
+        }
+    }, [isSpeaking, speakingWord]);
+
+    useEffect(() => {
+        if (!isSpeaking && !isPaused) {
+            window.getSelection()?.removeAllRanges();
+        }
+    }, [isSpeaking, isPaused]);
+
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 sm:px-8 relative group">
+        <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 sm:px-8 relative group transition-all duration-300 ${isSpeaking ? 'ring-2 ring-amber-400 dark:ring-amber-500 shadow-xl' : 'hover:shadow-lg'}`}>
+            <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
+                {!isSpeaking && !isPaused ? (
+                    <button
+                        onClick={() => speak(item.body)}
+                        className="p-2.5 rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 transition-all"
+                        title="Read aloud"
+                    >
+                        <SpeakerIcon className="w-5 h-5" />
+                    </button>
+                ) : (
+                    <div className="flex items-center gap-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700">
+                        {isPaused ? (
+                            <button
+                                onClick={() => speak(item.body, false)}
+                                className="p-2 rounded-full bg-green-100 text-green-600 hover:bg-green-200 transition-all"
+                                title="Resume"
+                            >
+                                <PlayIcon className="w-5 h-5" />
+                            </button>
+                        ) : (
+                            <button
+                                onClick={pause}
+                                className="p-2 rounded-full bg-amber-100 text-amber-600 hover:bg-amber-200 transition-all"
+                                title="Pause"
+                            >
+                                <PauseIcon className="w-5 h-5" />
+                            </button>
+                        )}
+                        <button
+                            onClick={stop}
+                            className="p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-all"
+                            title="Stop"
+                        >
+                            <StopIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
+            </div>
             <div
-                className="tau-body prose prose-sm dark:prose-invert max-w-none text-black dark:text-white break-words font-tau-paalai"
+                ref={contentRef}
+                className="tau-body prose prose-sm dark:prose-invert max-w-none text-black dark:text-white break-words font-tau-paalai selection:bg-amber-200 selection:text-black dark:selection:bg-amber-500/50 dark:selection:text-white"
                 style={fontStyle}
                 dangerouslySetInnerHTML={{ __html: processContentForHTML(item.body) }}
             />
+            {isSpeaking && (
+                <div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-amber-500 uppercase tracking-widest animate-pulse">
+                    <span className="flex h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                    {isPaused ? 'Paused' : 'Reading Aloud...'}
+                </div>
+            )}
         </div>
     );
 };

@@ -112,12 +112,17 @@ export const TeacherView: React.FC = () => {
             isPopping.current = false;
             if (exitSheetShowing.current) {
                 // Second tap while sheet is visible → close the browser/app
+                // Many mobile browsers treat window.close() as a request to close the tab/app
                 window.close();
                 // Fallback for browsers that block window.close()
-                window.location.href = 'about:blank';
+                setTimeout(() => {
+                    window.location.href = 'about:blank';
+                }, 100);
             } else {
                 exitSheetShowing.current = true;
                 setShowExitSheet(true);
+                // Push state back so the next back button triggers popstate again
+                window.history.pushState({ nav: 'exit-wait' }, '');
             }
         }
     }, [isProfilePageOpen, state, updateTeacherState]);
@@ -125,15 +130,15 @@ export const TeacherView: React.FC = () => {
     // Handle browser/mobile back button
     useEffect(() => {
         const handlePopState = (e: PopStateEvent) => {
-            // No need to prevent default for popstate, but we handle it
             handleGoBack();
         };
 
         window.addEventListener('popstate', handlePopState);
 
-        // Push an initial state so we have something to pop
-        if (window.history.state === null) {
-            window.history.replaceState({ path: 'home' }, '');
+        // Initial push to have something to pop on the very first back button press
+        if (!window.history.state || !window.history.state.isBase) {
+            window.history.replaceState({ isBase: true }, '');
+            window.history.pushState({ nav: 'initial' }, '');
         }
 
         return () => window.removeEventListener('popstate', handlePopState);
@@ -146,12 +151,10 @@ export const TeacherView: React.FC = () => {
             return;
         }
 
-        const hasSelection = state.classId || state.subjectId || state.unitId || state.subUnitId || state.lessonId || state.selectedResourceType || isProfilePageOpen;
-        if (hasSelection) {
-            // We push a dummy state so the next back button press triggers popstate
-            window.history.pushState({ nav: Date.now() }, '');
-        }
-    }, [state.classId, state.subjectId, state.unitId, state.subUnitId, state.lessonId, state.selectedResourceType, isProfilePageOpen]);
+        // We ALWAYS push a state on any change to ensure the hardware back button 
+        // can be intercepted by popstate event.
+        window.history.pushState({ nav: Date.now() }, '');
+    }, [state.classId, state.subjectId, state.unitId, state.subUnitId, state.lessonId, state.selectedResourceType, isProfilePageOpen, sidebarOpen]);
 
     if (!user) {
         return null; // Safeguard

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User, QuizQuestion, AnswerOption, Content } from '../../types';
 import { useApi } from '../../hooks/useApi';
 import * as api from '../../services/api';
@@ -61,7 +61,8 @@ const PieChart: React.FC<{ correct: number; wrong: number; skipped: number }> = 
     );
 };
 
-// --- Single Question Card Component (Reused for Quiz and Review) ---
+import { useTTS } from '../../hooks/useTTS';
+import { PlayIcon, PauseIcon, StopIcon, SpeakerIcon } from '../icons/TTSIcons';
 
 interface QuestionCardProps {
     question: QuizQuestion;
@@ -73,19 +74,105 @@ interface QuestionCardProps {
     showRationale: boolean;
 }
 
+const findRangeForCharOffsets = (root: Node, start: number, length: number): Range | null => {
+    let charCount = 0;
+    let startNode: Node | null = null;
+    let startOffset = 0;
+    let endNode: Node | null = null;
+    let endOffset = 0;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+        const nodeTextLength = node.textContent?.length || 0;
+        if (!startNode && charCount + nodeTextLength > start) {
+            startNode = node;
+            startOffset = start - charCount;
+        }
+        if (startNode && charCount + nodeTextLength >= start + length) {
+            endNode = node;
+            endOffset = (start + length) - charCount;
+            break;
+        }
+        charCount += nodeTextLength;
+    }
+    if (startNode && endNode) {
+        const range = document.createRange();
+        range.setStart(startNode, startOffset);
+        range.setEnd(endNode, endOffset);
+        return range;
+    }
+    return null;
+};
+
 const QuestionCard: React.FC<QuestionCardProps> = ({ question, index, totalQuestions, userAnswerIndex, onAnswerSelect, readOnly, showRationale }) => {
     const [showHint, setShowHint] = useState(false);
+    const { speak, pause, stop, isSpeaking, isPaused, speakingWord } = useTTS();
+    const questionRef = useRef<HTMLHeadingElement>(null);
+    const optionsRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+    useEffect(() => {
+        stop();
+    }, [question, stop]);
+
+    const handleSpeakAction = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const optionsText = question.answerOptions.map((opt, i) => `Option ${i + 1}: ${opt.text}`).join(". ");
+        const fullContent = `${question.question}. ${optionsText}`;
+        if (isSpeaking && !isPaused) {
+            pause();
+        } else if (isPaused) {
+            speak(fullContent, false); // Resume
+        } else {
+            speak(fullContent, true); // Start fresh
+        }
+    };
+
+    useEffect(() => {
+        if (isSpeaking && speakingWord) {
+            const questionText = (question.question || "").replace(/<[^>]*>/g, "");
+            const questionLength = questionText.length + 2; // +2 for ". "
+            let range: Range | null = null;
+
+            if (speakingWord.start < questionLength) {
+                if (questionRef.current) {
+                    range = findRangeForCharOffsets(questionRef.current, speakingWord.start, speakingWord.length);
+                }
+            } else {
+                let currentOffset = questionLength;
+                for (let i = 0; i < question.answerOptions.length; i++) {
+                    const optionLabel = `Option ${i + 1}: `;
+                    const optionText = (question.answerOptions[i].text || "").replace(/<[^>]*>/g, "");
+                    const optionFullText = optionLabel + optionText + (i === question.answerOptions.length - 1 ? "" : ". ");
+
+                    if (speakingWord.start < currentOffset + optionFullText.length) {
+                        const startInOption = speakingWord.start - currentOffset - optionLabel.length;
+                        if (startInOption >= 0 && optionsRefs.current[i]) {
+                            range = findRangeForCharOffsets(optionsRefs.current[i]!, startInOption, speakingWord.length);
+                        }
+                        break;
+                    }
+                    currentOffset += optionFullText.length;
+                }
+            }
+
+            if (range) {
+                const selection = window.getSelection();
+                if (selection) {
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            }
+        }
+    }, [isSpeaking, speakingWord, question]);
+
+    useEffect(() => {
+        if (!isSpeaking && !isPaused) {
+            window.getSelection()?.removeAllRanges();
+        }
+    }, [isSpeaking, isPaused]);
 
     const getOptionClass = (optIndex: number, isCorrect: boolean) => {
         const baseClass = "w-full text-left p-4 rounded-lg border-2 transition-all duration-200 relative group ";
-
-        // Logic:
-        // 1. If answer selected (userAnswerIndex !== null):
-        //    - If this option IS the correct answer -> Green
-        //    - If this option IS the user's WRONG selection -> Red
-        //    - Otherwise -> Dimmed
-        // 2. If no answer selected:
-        //    - Standard Hover effects
 
         if (userAnswerIndex !== null) {
             if (isCorrect) {
@@ -101,24 +188,44 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, index, totalQuest
     };
 
     return (
-        <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 mb-6">
+        <div className={`bg-white dark:bg-gray-800 p-6 md:p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 mb-6 transition-all duration-300 ${isSpeaking ? 'ring-2 ring-rose-400 dark:ring-rose-500' : ''}`}>
             {/* Header */}
             <div className="flex justify-between items-center mb-6">
                 <span className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                     Question {index + 1} <span className="text-gray-300 dark:text-gray-600">/</span> {totalQuestions}
                 </span>
-                {userAnswerIndex !== null && (
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${question.answerOptions[userAnswerIndex].isCorrect
-                        ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                        : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-                        }`}>
-                        {question.answerOptions[userAnswerIndex].isCorrect ? "Correct" : "Incorrect"}
-                    </span>
-                )}
+                <div className="flex items-center gap-2">
+                    {!isSpeaking && !isPaused ? (
+                        <button
+                            onClick={handleSpeakAction}
+                            className="p-2.5 rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 transition-all"
+                            title="Read aloud"
+                        >
+                            <SpeakerIcon className="w-5 h-5" />
+                        </button>
+                    ) : (
+                        <div className="flex items-center gap-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm p-1 rounded-full shadow-sm border border-gray-100 dark:border-gray-700">
+                            {isPaused ? (
+                                <button onClick={handleSpeakAction} className="p-2 rounded-full bg-green-100 text-green-600 hover:bg-green-200 transition-all"><PlayIcon className="w-5 h-5" /></button>
+                            ) : (
+                                <button onClick={(e) => { e.stopPropagation(); pause(); }} className="p-2 rounded-full bg-amber-100 text-amber-600 hover:bg-amber-200 transition-all"><PauseIcon className="w-5 h-5" /></button>
+                            )}
+                            <button onClick={(e) => { e.stopPropagation(); stop(); }} className="p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-all"><StopIcon className="w-5 h-5" /></button>
+                        </div>
+                    )}
+                    {userAnswerIndex !== null && (
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${question.answerOptions[userAnswerIndex].isCorrect
+                            ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                            : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                            }`}>
+                            {question.answerOptions[userAnswerIndex].isCorrect ? "Correct" : "Incorrect"}
+                        </span>
+                    )}
+                </div>
             </div>
 
             {/* Question */}
-            <h2 className="text-xl md:text-2xl font-semibold text-black dark:text-white mb-8 leading-relaxed font-tau-paalai" dangerouslySetInnerHTML={{ __html: processContentForHTML(question.question) }} />
+            <h2 ref={questionRef} className="text-xl md:text-2xl font-semibold text-black dark:text-white mb-8 leading-relaxed font-tau-paalai selection:bg-rose-200 selection:text-black" dangerouslySetInnerHTML={{ __html: processContentForHTML(question.question) }} />
 
             {/* Options */}
             <div className="space-y-4 mb-6">
@@ -137,7 +244,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, index, totalQuest
                                     {userAnswerIndex !== null && option.isCorrect && <div className="w-3 h-3 rounded-full bg-green-500"></div>}
                                     {userAnswerIndex === optIndex && !option.isCorrect && <div className="w-3 h-3 rounded-full bg-red-500"></div>}
                                 </div>
-                                <div className="flex-1 font-tau-paalai text-xl" dangerouslySetInnerHTML={{ __html: processContentForHTML(option.text) }} />
+                                <div ref={el => { optionsRefs.current[optIndex] = el; }} className="flex-1 font-tau-paalai text-xl selection:bg-rose-200 selection:text-black" dangerouslySetInnerHTML={{ __html: processContentForHTML(option.text) }} />
                             </div>
                         </button>
                     </div>

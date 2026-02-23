@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Content, User } from '../../types';
 import { useApi } from '../../hooks/useApi';
 import * as api from '../../services/api';
@@ -6,6 +6,9 @@ import { FlashcardIcon } from '../icons/ResourceTypeIcons';
 import { ChevronRightIcon, ChevronLeftIcon } from '../icons/AdminIcons';
 import { Fireworks } from './Fireworks';
 import { processContentForHTML } from '../../utils/htmlUtils';
+import { useTTS } from '../../hooks/useTTS';
+
+import { PlayIcon, PauseIcon, StopIcon, SpeakerIcon } from '../icons/TTSIcons';
 
 const getFrontTheme = () => ({
     bg: 'linear-gradient(135deg, #000000, #333333)',
@@ -26,31 +29,151 @@ const Flashcard: React.FC<{
     isLandscapeMobile?: boolean;
 }> = ({ card, frontTheme, backTheme, isLandscapeMobile }) => {
     const [isFlipped, setIsFlipped] = useState(false);
+    const { speak, pause, stop, isSpeaking, isPaused, speakingWord } = useTTS();
+    const frontRef = useRef<HTMLDivElement>(null);
+    const backRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         setIsFlipped(false);
-    }, [card]);
+        stop();
+    }, [card, stop]);
+
+    const handleFlip = () => {
+        setIsFlipped(!isFlipped);
+        stop();
+    };
+
+    const handleSpeakAction = (e: React.MouseEvent, side: 'front' | 'back') => {
+        e.stopPropagation();
+        const content = side === 'front' ? card.title : card.body;
+        if (isSpeaking && !isPaused) {
+            pause();
+        } else if (isPaused) {
+            speak(content, false); // Resume from where we left off
+        } else {
+            speak(content, true); // Start from the beginning
+        }
+    };
+
+    const findRangeForCharOffsets = (root: Node, start: number, length: number): Range | null => {
+        let charCount = 0;
+        let startNode: Node | null = null;
+        let startOffset = 0;
+        let endNode: Node | null = null;
+        let endOffset = 0;
+
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+        let node: Node | null;
+
+        while ((node = walker.nextNode())) {
+            const nodeTextLength = node.textContent?.length || 0;
+            if (!startNode && charCount + nodeTextLength > start) {
+                startNode = node;
+                startOffset = start - charCount;
+            }
+            if (startNode && charCount + nodeTextLength >= start + length) {
+                endNode = node;
+                endOffset = (start + length) - charCount;
+                break;
+            }
+            charCount += nodeTextLength;
+        }
+
+        if (startNode && endNode) {
+            const range = document.createRange();
+            range.setStart(startNode, startOffset);
+            range.setEnd(endNode, endOffset);
+            return range;
+        }
+        return null;
+    };
+
+    useEffect(() => {
+        const activeRef = isFlipped ? backRef : frontRef;
+        if (isSpeaking && speakingWord && activeRef.current) {
+            const range = findRangeForCharOffsets(activeRef.current, speakingWord.start, speakingWord.length);
+            if (range) {
+                const selection = window.getSelection();
+                if (selection) {
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            }
+        }
+    }, [isSpeaking, speakingWord, isFlipped]);
+
+    useEffect(() => {
+        if (!isSpeaking && !isPaused) {
+            window.getSelection()?.removeAllRanges();
+        }
+    }, [isSpeaking, isPaused]);
 
     const contentClass = `w-full max-h-full overflow-y-auto ${isLandscapeMobile ? 'prose prose-base leading-snug pb-16' : 'prose prose-2xl'} max-w-none text-center px-4 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent font-tau-marutham`;
 
     return (
-        <div className="w-full h-full [perspective:1500px]" onClick={() => setIsFlipped(!isFlipped)}>
+        <div className="w-full h-full [perspective:1500px]" onClick={handleFlip}>
             <div className={`relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped ? '[transform:rotateY(180deg)]' : ''} ease-in-out`}>
+                {/* Front Side */}
                 <div
                     className={`absolute w-full h-full rounded-2xl shadow-2xl flex flex-col items-center justify-center ${isLandscapeMobile ? 'p-4' : 'p-8'} [backface-visibility:hidden] ${frontTheme.textClass} ${frontTheme.borderClass} border-2 cursor-pointer`}
                     style={{ background: frontTheme.bg }}
                 >
+                    <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
+                        {!isFlipped && (
+                            !isSpeaking && !isPaused ? (
+                                <button
+                                    onClick={(e) => handleSpeakAction(e, 'front')}
+                                    className="p-2.5 rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all"
+                                    title="Read aloud"
+                                >
+                                    <SpeakerIcon className="w-6 h-6" />
+                                </button>
+                            ) : (
+                                <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm p-1 rounded-full border border-white/20">
+                                    {isPaused ? (
+                                        <button onClick={(e) => handleSpeakAction(e, 'front')} className="p-2 rounded-full bg-green-500/80 text-white hover:bg-green-500 transition-all"><PlayIcon className="w-5 h-5" /></button>
+                                    ) : (
+                                        <button onClick={(e) => { e.stopPropagation(); pause(); }} className="p-2 rounded-full bg-amber-500/80 text-white hover:bg-amber-500 transition-all"><PauseIcon className="w-5 h-5" /></button>
+                                    )}
+                                    <button onClick={(e) => { e.stopPropagation(); stop(); }} className="p-2 rounded-full bg-red-500/80 text-white hover:bg-red-500 transition-all"><StopIcon className="w-5 h-5" /></button>
+                                </div>
+                            )
+                        )}
+                    </div>
                     <div className="text-5xl mb-6 opacity-80 shrink-0">❓</div>
-                    <div className={contentClass} style={{ color: 'inherit' }} dangerouslySetInnerHTML={{ __html: processContentForHTML(card.title) }} />
+                    <div ref={frontRef} className={contentClass + " selection:bg-white selection:text-black"} style={{ color: 'inherit' }} dangerouslySetInnerHTML={{ __html: processContentForHTML(card.title) }} />
                     <p className="absolute bottom-6 text-xs uppercase tracking-widest opacity-60 animate-pulse shrink-0">Tap to Flip</p>
                 </div>
 
+                {/* Back Side */}
                 <div
                     className={`absolute w-full h-full rounded-2xl shadow-2xl flex flex-col items-center justify-center ${isLandscapeMobile ? 'p-4' : 'p-8'} [transform:rotateY(180deg)] [backface-visibility:hidden] ${backTheme.textClass} ${backTheme.borderClass} border-2 cursor-pointer`}
                     style={{ background: backTheme.bg }}
                 >
+                    <div className="absolute top-4 right-4 flex items-center gap-1 z-10">
+                        {isFlipped && (
+                            !isSpeaking && !isPaused ? (
+                                <button
+                                    onClick={(e) => handleSpeakAction(e, 'back')}
+                                    className="p-2.5 rounded-full bg-black/5 text-black/40 hover:bg-black/10 hover:text-black transition-all"
+                                    title="Read aloud"
+                                >
+                                    <SpeakerIcon className="w-6 h-6" />
+                                </button>
+                            ) : (
+                                <div className="flex items-center gap-1 bg-white/60 backdrop-blur-sm p-1 rounded-full border border-black/10">
+                                    {isPaused ? (
+                                        <button onClick={(e) => handleSpeakAction(e, 'back')} className="p-2 rounded-full bg-green-500/80 text-white hover:bg-green-500 transition-all"><PlayIcon className="w-5 h-5" /></button>
+                                    ) : (
+                                        <button onClick={(e) => { e.stopPropagation(); pause(); }} className="p-2 rounded-full bg-amber-500/80 text-white hover:bg-amber-500 transition-all"><PauseIcon className="w-5 h-5" /></button>
+                                    )}
+                                    <button onClick={(e) => { e.stopPropagation(); stop(); }} className="p-2 rounded-full bg-red-500/80 text-white hover:bg-red-500 transition-all"><StopIcon className="w-5 h-5" /></button>
+                                </div>
+                            )
+                        )}
+                    </div>
                     <div className="text-5xl mb-6 opacity-80 shrink-0">💡</div>
-                    <div className={contentClass} style={{ color: 'inherit' }} dangerouslySetInnerHTML={{ __html: processContentForHTML(card.body) }} />
+                    <div ref={backRef} className={contentClass + " selection:bg-amber-200 selection:text-black"} style={{ color: 'inherit' }} dangerouslySetInnerHTML={{ __html: processContentForHTML(card.body) }} />
                 </div>
             </div>
         </div>
