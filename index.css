@@ -1,7 +1,8 @@
 /* Import Tamil fonts */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@100;200;300;400;500;600;700;800;900&display=swap');
 
-html, body {
+html,
+body {
   overscroll-behavior-y: none;
 }
 
@@ -80,7 +81,7 @@ html, body {
 }
 
 .mesh-gradient {
-  background: 
+  background:
     radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0, transparent 50%),
     radial-gradient(at 100% 0%, rgba(147, 51, 234, 0.15) 0, transparent 50%),
     radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.15) 0, transparent 50%),
@@ -100,9 +101,17 @@ html, body {
 }
 
 @keyframes heroGradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .hi-tech-border {
@@ -589,6 +598,18 @@ html, body {
 }
 
 /* Enhanced Q&A HTML Content Styling */
+::highlight(tts-highlight) {
+  background-color: #bfdbfe;
+  /* Tailwind blue-200 */
+  color: #000;
+}
+
+.dark ::highlight(tts-highlight) {
+  background-color: #60a5fa;
+  /* Tailwind blue-400 */
+  color: #fff;
+}
+
 .qa-content {
   line-height: 1.7;
   word-wrap: break-word;
@@ -809,6 +830,31 @@ html, body {
   box-shadow: 0 3px 6px rgba(32, 201, 151, 0.4);
 }
 
+/* Custom Scrollbar for views */
+.custom-scrollbar {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #3b82f6;
+  /* bg-blue-500 */
+  border-radius: 20px;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #3b82f6;
+}
+
 /* Table result preview container */
 .qa-content .table-result {
   margin: 1.5em 0;
@@ -884,7 +930,10 @@ html, body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }

@@ -7,7 +7,7 @@ import { ChevronRightIcon, ChevronLeftIcon } from '../icons/AdminIcons';
 import { Fireworks } from './Fireworks';
 import { processContentForHTML } from '../../utils/htmlUtils';
 import { useTTS } from '../../hooks/useTTS';
-
+import { applyTTSHighlight, clearTTSHighlight } from '../../utils/ttsUtils';
 import { PlayIcon, PauseIcon, StopIcon, SpeakerIcon } from '../icons/TTSIcons';
 
 const getFrontTheme = () => ({
@@ -92,19 +92,13 @@ const Flashcard: React.FC<{
         const activeRef = isFlipped ? backRef : frontRef;
         if (isSpeaking && speakingWord && activeRef.current) {
             const range = findRangeForCharOffsets(activeRef.current, speakingWord.start, speakingWord.length);
-            if (range) {
-                const selection = window.getSelection();
-                if (selection) {
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                }
-            }
+            applyTTSHighlight(range);
         }
     }, [isSpeaking, speakingWord, isFlipped]);
 
     useEffect(() => {
         if (!isSpeaking && !isPaused) {
-            window.getSelection()?.removeAllRanges();
+            clearTTSHighlight();
         }
     }, [isSpeaking, isPaused]);
 

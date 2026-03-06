@@ -70,7 +70,7 @@ const splitContentIntoPages = (htmlContent: string): string[] => {
 };
 
 import { useTTS } from '../../hooks/useTTS';
-
+import { applyTTSHighlight, clearTTSHighlight } from '../../utils/ttsUtils';
 import { PlayIcon, PauseIcon, StopIcon, SpeakerIcon } from '../icons/TTSIcons';
 
 const findRangeForCharOffsets = (root: Node, start: number, length: number): Range | null => {
@@ -148,19 +148,13 @@ const ContentCard: React.FC<{
             } else {
                 if (bodyRef.current) range = findRangeForCharOffsets(bodyRef.current, speakingWord.start - titleLength, speakingWord.length);
             }
-            if (range) {
-                const selection = window.getSelection();
-                if (selection) {
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                }
-            }
+            applyTTSHighlight(range);
         }
     }, [isSpeaking, speakingWord, item.title, item.body]);
 
     useEffect(() => {
         if (!isSpeaking && !isPaused) {
-            window.getSelection()?.removeAllRanges();
+            clearTTSHighlight();
         }
     }, [isSpeaking, isPaused]);
 

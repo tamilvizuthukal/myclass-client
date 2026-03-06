@@ -63,6 +63,7 @@ const PieChart: React.FC<{ correct: number; wrong: number; skipped: number }> = 
 
 import { useTTS } from '../../hooks/useTTS';
 import { PlayIcon, PauseIcon, StopIcon, SpeakerIcon } from '../icons/TTSIcons';
+import { applyTTSHighlight, clearTTSHighlight } from '../../utils/ttsUtils';
 
 interface QuestionCardProps {
     question: QuizQuestion;
@@ -155,19 +156,13 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, index, totalQuest
                 }
             }
 
-            if (range) {
-                const selection = window.getSelection();
-                if (selection) {
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                }
-            }
+            applyTTSHighlight(range);
         }
     }, [isSpeaking, speakingWord, question]);
 
     useEffect(() => {
         if (!isSpeaking && !isPaused) {
-            window.getSelection()?.removeAllRanges();
+            clearTTSHighlight();
         }
     }, [isSpeaking, isPaused]);
 

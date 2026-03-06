@@ -52,6 +52,7 @@ const getQuestionTypeColor = (type: QuestionType): string => {
 
 import { useTTS } from '../../hooks/useTTS';
 import { PlayIcon, PauseIcon, StopIcon, SpeakerIcon } from '../icons/TTSIcons';
+import { applyTTSHighlight, clearTTSHighlight } from '../../utils/ttsUtils';
 
 const findRangeForCharOffsets = (root: Node, start: number, length: number): Range | null => {
     let charCount = 0;
@@ -118,19 +119,13 @@ const QACard: React.FC<{
             } else {
                 if (answerRef.current) range = findRangeForCharOffsets(answerRef.current, speakingWord.start - titleLength, speakingWord.length);
             }
-            if (range) {
-                const selection = window.getSelection();
-                if (selection) {
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                }
-            }
+            applyTTSHighlight(range);
         }
     }, [isSpeaking, speakingWord, item.title, item.body]);
 
     useEffect(() => {
         if (!isSpeaking && !isPaused) {
-            window.getSelection()?.removeAllRanges();
+            clearTTSHighlight();
         }
     }, [isSpeaking, isPaused]);
 
@@ -246,26 +241,28 @@ export const QAView: React.FC<QAViewProps> = ({ lessonId }) => {
     }
 
     return (
-        <div className="max-w-4xl mx-auto p-4 sm:p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Questions & Answers</h2>
-                <FontSizeControl />
-            </div>
+        <div className="h-full w-full overflow-y-auto custom-scrollbar">
+            <div className="max-w-4xl mx-auto p-4 sm:p-6 pb-24">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Questions & Answers</h2>
+                    <FontSizeControl />
+                </div>
 
-            <div className="space-y-4">
-                {qaItems.map((item: Content) => (
-                    <QACard
-                        key={item._id}
-                        item={item}
-                        isOpen={openCardId === item._id}
-                        onToggle={() => {
-                            if (openCardId !== item._id) {
-                                api.trackContentView(item._id).catch(() => { });
-                            }
-                            setOpenCardId(openCardId === item._id ? null : item._id);
-                        }}
-                    />
-                ))}
+                <div className="space-y-4">
+                    {qaItems.map((item: Content) => (
+                        <QACard
+                            key={item._id}
+                            item={item}
+                            isOpen={openCardId === item._id}
+                            onToggle={() => {
+                                if (openCardId !== item._id) {
+                                    api.trackContentView(item._id).catch(() => { });
+                                }
+                                setOpenCardId(openCardId === item._id ? null : item._id);
+                            }}
+                        />
+                    ))}
+                </div>
             </div>
         </div>
     );

@@ -24,6 +24,7 @@ interface NotesViewProps {
 
 import { useTTS } from '../../hooks/useTTS';
 import { PlayIcon, PauseIcon, StopIcon, SpeakerIcon } from '../icons/TTSIcons';
+import { applyTTSHighlight, clearTTSHighlight } from '../../utils/ttsUtils';
 
 const findRangeForCharOffsets = (root: Node, start: number, length: number): Range | null => {
     let charCount = 0;
@@ -70,19 +71,13 @@ const NoteCard: React.FC<{ item: Content; }> = ({ item }) => {
     useEffect(() => {
         if (isSpeaking && speakingWord && contentRef.current) {
             const range = findRangeForCharOffsets(contentRef.current, speakingWord.start, speakingWord.length);
-            if (range) {
-                const selection = window.getSelection();
-                if (selection) {
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                }
-            }
+            applyTTSHighlight(range);
         }
     }, [isSpeaking, speakingWord]);
 
     useEffect(() => {
         if (!isSpeaking && !isPaused) {
-            window.getSelection()?.removeAllRanges();
+            clearTTSHighlight();
         }
     }, [isSpeaking, isPaused]);
 
