@@ -1,14 +1,14 @@
 /* Import Tamil fonts */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@100;200;300;400;500;600;700;800;900&display=swap');
 
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
 html,
 body {
   overscroll-behavior-y: none;
 }
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 /* ... existing fonts ... */
 
@@ -40,6 +40,15 @@ body {
   src: url('/fonts/TAU-Kabilar.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'TAU-Kabilar';
+  src: url('/fonts/TAU-Kabilar-B.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
 }
 
 .font-tau-kabilar {
@@ -126,6 +135,7 @@ body {
   padding: 1px;
   background: linear-gradient(45deg, transparent 40%, rgba(59, 130, 246, 0.3), transparent 60%);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
