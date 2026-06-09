@@ -82,7 +82,8 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url, initialScale = 1.0 })
 
             if (!mountedRef.current) return; // Component unmounted during async operation
 
-            const viewport = page.getViewport({ scale });
+            // Explicitly include page rotation to ensure it renders with correct orientation
+            const viewport = page.getViewport({ scale, rotation: page.rotate });
             const canvas = canvasRef.current;
             const context = canvas.getContext('2d');
 
