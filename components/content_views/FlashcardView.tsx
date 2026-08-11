@@ -18,7 +18,7 @@ const getFrontTheme = () => ({
 
 const getBackTheme = () => ({
     bg: 'linear-gradient(135deg, #ffffff, #f5f5f5)',
-    textClass: '!text-black',
+    textClass: 'text-black [&_*]:!text-black font-bold', // Strictly Black and Bold
     borderClass: 'border-gray-800 dark:border-gray-700'
 });
 
@@ -174,12 +174,46 @@ const Flashcard: React.FC<{
     );
 };
 
-const ThankYouScreen: React.FC<{ onRetry: () => void }> = ({ onRetry }) => (
-    <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-4 text-center">
+const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
+const XCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
+const ThankYouScreen: React.FC<{ 
+    onRetry: () => void; 
+    results: { correct: number; wrong: number };
+    total: number;
+}> = ({ onRetry, results, total }) => (
+    <div className="absolute inset-0 bg-gray-900/90 backdrop-blur-md z-20 flex flex-col items-center justify-center p-4 text-center">
         <Fireworks />
-        <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">Great Job!</h2>
-        <p className="text-lg text-gray-300 mb-8">You've reviewed all the flashcards.</p>
-        <button onClick={onRetry} className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 transition-transform transform hover:scale-105 shadow-lg">
+        <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Review Complete!</h2>
+        
+        <div className="flex gap-8 mb-8">
+            <div className="flex flex-col items-center p-6 bg-green-500/20 border border-green-500/30 rounded-2xl">
+                <CheckCircleIcon className="w-12 h-12 text-green-400 mb-2" />
+                <span className="text-3xl font-bold text-green-400">{results.correct}</span>
+                <span className="text-sm text-green-200 mt-1 uppercase tracking-wider">Correct</span>
+            </div>
+            
+            <div className="flex flex-col items-center p-6 bg-red-500/20 border border-red-500/30 rounded-2xl">
+                <XCircleIcon className="w-12 h-12 text-red-400 mb-2" />
+                <span className="text-3xl font-bold text-red-400">{results.wrong}</span>
+                <span className="text-sm text-red-200 mt-1 uppercase tracking-wider">Wrong</span>
+            </div>
+        </div>
+
+        <p className="text-lg text-gray-300 mb-8">
+            You got <span className="font-bold text-white">{results.correct}</span> out of {total} right.
+        </p>
+
+        <button onClick={onRetry} className="px-10 py-4 bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold rounded-full hover:from-blue-500 hover:to-violet-500 transition-all transform hover:scale-105 shadow-xl shadow-blue-900/20">
             Start Over
         </button>
     </div>
@@ -192,7 +226,27 @@ export const FlashcardView: React.FC<{ lessonId: string; user: User }> = ({ less
     const [isMobile, setIsMobile] = useState(false);
     const [isLandscape, setIsLandscape] = useState(false);
 
+    // Validation state
+    const [results, setResults] = useState<{ correct: number; wrong: number }>({ correct: 0, wrong: 0 });
+
     const flashcards = useMemo(() => groupedContent?.[0]?.docs || [], [groupedContent]);
+
+    // Load saved results on mount
+    useEffect(() => {
+        const savedResults = sessionStorage.getItem(`flashcard-results-${lessonId}`);
+        if (savedResults) {
+            try {
+                setResults(JSON.parse(savedResults));
+            } catch (e) {
+                console.error("Error parsing saved results", e);
+            }
+        }
+    }, [lessonId]);
+
+    // Save results to session storage whenever they change
+    useEffect(() => {
+        sessionStorage.setItem(`flashcard-results-${lessonId}`, JSON.stringify(results));
+    }, [results, lessonId]);
 
     useEffect(() => {
         const checkResponsive = () => {
@@ -213,12 +267,31 @@ export const FlashcardView: React.FC<{ lessonId: string; user: User }> = ({ less
     useEffect(() => {
         setCurrentCardIndex(0);
         setShowThankYou(false);
+        // Do not reset results here; they are tied to the session
     }, [lessonId]);
 
     const handleNext = useCallback(() => {
-        if (currentCardIndex < flashcards.length - 1) setCurrentCardIndex(prev => prev + 1);
-        else setShowThankYou(true);
+        if (currentCardIndex < flashcards.length - 1) {
+            setCurrentCardIndex(prev => prev + 1);
+        } else {
+            setShowThankYou(true);
+        }
     }, [currentCardIndex, flashcards.length]);
+
+    const handleValidation = useCallback((isCorrect: boolean) => {
+        setResults(prev => ({
+            ...prev,
+            [isCorrect ? 'correct' : 'wrong']: prev[isCorrect ? 'correct' : 'wrong'] + 1
+        }));
+        handleNext();
+    }, [handleNext]);
+
+    const handleRetry = useCallback(() => {
+        setCurrentCardIndex(0);
+        setShowThankYou(false);
+        setResults({ correct: 0, wrong: 0 });
+        sessionStorage.removeItem(`flashcard-results-${lessonId}`);
+    }, [lessonId]);
 
     const handlePrev = useCallback(() => {
         setShowThankYou(false);
@@ -285,6 +358,25 @@ export const FlashcardView: React.FC<{ lessonId: string; user: User }> = ({ less
                 </div>
 
                 <div className={`${isMobile && isLandscape ? 'absolute bottom-0 left-0 right-0 z-20 pb-2 px-12 bg-gradient-to-t from-black/80 pt-10' : 'w-full max-w-3xl flex flex-col items-center mb-4 shrink-0'}`}>
+                    
+                    {/* Validation Buttons */}
+                    <div className="flex items-center justify-center gap-6 w-full mb-6">
+                        <button 
+                            onClick={() => handleValidation(false)}
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 border-2 border-red-500/20 text-red-600 dark:text-red-400 font-bold rounded-xl shadow-sm hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-500/40 transition-all active:scale-95"
+                        >
+                            <XCircleIcon className="w-6 h-6" />
+                            <span>Wrong</span>
+                        </button>
+                        <button 
+                            onClick={() => handleValidation(true)}
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 border-2 border-green-500/20 text-green-600 dark:text-green-400 font-bold rounded-xl shadow-sm hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-500/40 transition-all active:scale-95"
+                        >
+                            <CheckCircleIcon className="w-6 h-6" />
+                            <span>Correct</span>
+                        </button>
+                    </div>
+
                     <div className="flex items-center justify-between w-full mb-3">
                         <button onClick={handlePrev} disabled={currentCardIndex === 0} className={`p-3 rounded-full shadow-md transition-colors ${isMobile && isLandscape ? 'bg-white/20 text-white hover:bg-white/30 disabled:opacity-30 scale-75' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 disabled:opacity-50'}`}>
                             <ChevronLeftIcon className="w-6 h-6" />
@@ -304,7 +396,7 @@ export const FlashcardView: React.FC<{ lessonId: string; user: User }> = ({ less
                     </div>
                 </div>
 
-                {showThankYou && <ThankYouScreen onRetry={() => { setCurrentCardIndex(0); setShowThankYou(false); }} />}
+                {showThankYou && <ThankYouScreen onRetry={handleRetry} results={results} total={flashcards.length} />}
             </div>
         </div>
     );

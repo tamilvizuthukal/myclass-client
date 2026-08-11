@@ -195,8 +195,21 @@ const FullscreenSlideViewer: React.FC<{
     }, [toggleNativeFullscreen]);
 
     useEffect(() => {
-        const handleFullscreenChange = () => {
-            if (!document.fullscreenElement) onClose();
+        const handleFullscreenChange = async () => {
+            if (!document.fullscreenElement) {
+                const screenObj = window.screen as any;
+                if (screenObj?.orientation?.lock) {
+                    try {
+                        await screenObj.orientation.lock('portrait');
+                    } catch (e) {
+                        console.log('Portrait lock failed on exit:', e);
+                    }
+                }
+                if (screenObj?.orientation?.unlock) {
+                    screenObj.orientation.unlock();
+                }
+                onClose();
+            }
         };
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         return () => {

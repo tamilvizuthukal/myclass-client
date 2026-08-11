@@ -90,6 +90,8 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({ url, initialScale = 1.0 })
             if (context && mountedRef.current) {
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
+                context.fillStyle = 'white';
+                context.fillRect(0, 0, canvas.width, canvas.height);
 
                 const renderContext = {
                     canvasContext: context,

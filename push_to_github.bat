@@ -11,8 +11,9 @@ if "%commit_msg%"=="" set commit_msg=Update
 echo Committing changes...
 git commit -m "%commit_msg%"
 
-echo Pushing to GitHub (https://github.com/dsavio83/myclass.git)...
+echo Pushing to GitHub (https://github.com/tamilvizuthukal/myclass-client.git)...
 git push origin main
 
 echo Done!
 pause
+
