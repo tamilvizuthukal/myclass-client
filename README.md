@@ -24,7 +24,7 @@ Client application for browsing school content (Class → Subject → Unit → S
 
 ## Prerequisites
 
-- **Node.js 20.x**
+- **Node.js 24.x**
 - **MongoDB** — a running local instance (recommended) or a cloud Atlas cluster
 
 ## Setup

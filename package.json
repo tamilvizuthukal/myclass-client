@@ -45,7 +45,7 @@
     "vite-plugin-pwa": "^1.2.0"
   },
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "description": "This contains everything you need to run your app locally.",
   "main": "build.js",
