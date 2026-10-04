@@ -1,15 +1,21 @@
 // api/index.js
-import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import apiRoutes from './routes/index.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load api/.env relative to this file so the server behaves the same
+// regardless of the directory it was launched from. `dotenv/config`
+// resolves against process.cwd(), which silently produced PORT=undefined
+// (fallback port) and MONGODB_URI=undefined when started from the repo root.
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 
@@ -30,20 +36,43 @@ if (fs.existsSync(uploadsPath)) {
 
 // Database connection cache
 let dbConnected = false;
+let dbConnecting = null;
+
+mongoose.connection.on('error', (err) => {
+    console.error('[mongodb] connection error:', err.message);
+});
+mongoose.connection.on('disconnected', () => {
+    dbConnected = false;
+    console.warn('[mongodb] disconnected');
+});
 
 const connectToDatabase = async () => {
     if (dbConnected) return;
+    if (dbConnecting) return dbConnecting;
+
     const uri = process.env.MONGODB_URI;
     if (!uri) {
-        throw new Error('MONGODB_URI is not defined in environment variables');
+        throw new Error(
+            'MONGODB_URI is not defined. Expected it in ' + path.join(__dirname, '.env')
+        );
     }
 
-    try {
-        await mongoose.connect(uri);
-        dbConnected = true;
-    } catch (error) {
-        throw error;
-    }
+    dbConnecting = mongoose.connect(uri)
+        .then(() => {
+            dbConnected = true;
+            console.log('[mongodb] connected to', uri.replace(/\/\/([^@]+)@/, '//***@'));
+            return mongoose.connection;
+        })
+        .catch((error) => {
+            dbConnected = false;
+            console.error('[mongodb] connection failed:', error.message);
+            throw error;
+        })
+        .finally(() => {
+            dbConnecting = null;
+        });
+
+    return dbConnecting;
 };
 
 // Mount routes
@@ -80,16 +109,23 @@ app.get('/', (req, res) => {
 
 // Server startup for direct Node.js execution
 export const startServer = async () => {
+    const PORT = process.env.PORT || 5001;
     try {
-        const PORT = process.env.PORT || 5002;
         const server = app.listen(PORT, () => {
+            console.log(`[server] listening on port ${PORT}`);
             // Attempt to connect to DB in background
-            connectToDatabase().catch(error => {
-                // Silently fail, it will retry on request
+            connectToDatabase().catch((error) => {
+                // Logged in connectToDatabase; requests will retry the connection.
+                console.error('[server] startup DB connection failed:', error.message);
             });
+        });
+        server.on('error', (error) => {
+            console.error('[server] failed to start:', error.message);
+            process.exit(1);
         });
         server.setTimeout(5 * 60 * 1000);
     } catch (error) {
+        console.error('[server] failed to start:', error.message);
         process.exit(1);
     }
 };
